@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct breweryApp: App {
+    
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainView()
         }
+        .defaultSize(width: 900, height: 600)
+        .windowResizability(.contentMinSize)
     }
 }
