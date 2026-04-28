@@ -15,5 +15,5 @@ A macOS GUI app for managing Homebrew packages.
 
 ## Requirements
 
-- macOS 13.0+
+- macOS 14.6+
 - [Homebrew](https://brew.sh) installed at `/opt/homebrew/bin/brew`
