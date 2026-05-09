@@ -25,6 +25,10 @@ struct SidebarView: View {
                                 .foregroundStyle(.orange)
                         }
                         Text(cask.cur_version)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .foregroundStyle(.secondary)
+                            .font(.caption)
                     }
                 }
             }
@@ -40,6 +44,10 @@ struct SidebarView: View {
                                 .foregroundStyle(.orange)
                         }
                         Text(formula.cur_version)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .foregroundStyle(.secondary)
+                            .font(.caption)
                     }
                     
                 }

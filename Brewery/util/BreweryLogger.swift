@@ -25,6 +25,16 @@ final class BreweryLogger {
         fileURL = logsDir.appendingPathComponent("Brewery.log")
     }
     
+    func logFileSize() -> String {
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
+              let bytes = attrs[.size] as? Int64 else { return "0 KB" }
+        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+
+    func clearLog() throws {
+        try FileManager.default.removeItem(at: fileURL)
+    }
+
     func log(command: [String], stdout: String, stderr: String, duration: TimeInterval) async {
         let timestamp = dateFormatter.string(from: Date())
         var lines = ["[\(timestamp)] CMD: brew \(command.joined(separator: " "))"]

@@ -25,13 +25,13 @@ struct MainView: View {
                     selected = dep
                 }
                     .id(selected)
-                    .frame(minWidth: 500)
+                    .frame(minWidth: 380)
             } else if showSearch {
                 SearchView(vm: vm, selected: $selected, showSearch: $showSearch)
-                    .frame(minWidth: 500, minHeight: 300, alignment: .top)
+                    .frame(minWidth: 380, minHeight: 280, alignment: .top)
             } else {
                 HomeView(vm: vm)
-                    .frame(minWidth: 500, minHeight: 300, alignment: .top)
+                    .frame(minWidth: 380, minHeight: 280, alignment: .top)
             }
         }
         .toolbar {

@@ -22,7 +22,7 @@ struct HomeView: View {
         VStack(spacing: 24) {
             VStack(spacing: 6) {
                 Text("Brewery")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(.system(.largeTitle, design: .rounded, weight: .bold))
                 HStack {
                     Text(vm.brewVersion)
                     Text("·")
@@ -49,7 +49,7 @@ struct HomeView: View {
                 VStack(spacing: 16) {
                     Button(action: { Task { await vm.brewSelfUpdate() } }) {
                         Label(vm.isRunningUpdate ? "Updating..." : vm.isLatestAfterUpdate == true ? "Latest Version" : "Brew Update", systemImage: vm.isRunningUpdate ? "arrow.triangle.2.circlepath" : vm.isLatestAfterUpdate == true ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath")
-                            .frame(width: 140)
+                            .frame(maxWidth: .infinity)
                             .foregroundStyle(vm.isLatestAfterUpdate == true && !vm.isRunningUpdate ?
                                .green : .primary)
                     }
@@ -58,12 +58,12 @@ struct HomeView: View {
 
                     Button(action: { Task { await vm.brewCleanUp() } }) {
                         Label(vm.isRunningCleanup ? "Cleaing..." : "Brew Cleanup", systemImage: "trash")
-                            .frame(width: 140)
+                            .frame(maxWidth: .infinity)
 
                     }
                     .controlSize(.large)
                 }
-                .frame(width: 160, height: 116)
+                .frame(maxWidth: .infinity, minHeight: 100)
             }
         }
         .padding()
@@ -83,14 +83,14 @@ struct StatCard: View {
                     .frame(height: 40)
             } else {
                 Text(value)
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                    .font(.system(.largeTitle, design: .rounded, weight: .bold))
             }
             
             Text(title)
-                .font(.system(size: 24))
+                .font(.title3)
                 .foregroundStyle(.secondary)
         }
-        .frame(width: 160, height: 116)
+        .frame(maxWidth: .infinity, minHeight: 100)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
     }
 }
@@ -108,14 +108,14 @@ struct HalfStatCard: View {
                     .frame(height: 20)
             } else {
                 Text(value)
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .font(.system(.title2, design: .rounded, weight: .bold))
             }
             
             Text(title)
-                .font(.system(size: 12))
+                .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .frame(width: 160, height: 50)
+        .frame(maxWidth: .infinity, minHeight: 44)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
 
     }

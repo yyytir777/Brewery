@@ -17,6 +17,8 @@ struct BreweryDetailView: View {
 
     @State private var showMoreInfo = false
     @State private var brewInfoText = ""
+    @State private var showUninstallConfirm = false
+    @State private var zapOnUninstall = false
 
     var body: some View {
         ScrollView {
@@ -135,8 +137,11 @@ struct BreweryDetailView: View {
                 
                 Spacer()
                 
-                Button("uninstall", role: .destructive, action: { Task { await vm.uninstallFormula(name: formula.name) } })
-                    .tint(.red)
+                Button("uninstall", role: .destructive) {
+                    zapOnUninstall = false
+                    showUninstallConfirm = true
+                }
+                .tint(.red)
             }
 
             if showMoreInfo {
@@ -149,6 +154,13 @@ struct BreweryDetailView: View {
                 .textSelection(.enabled)
             }
 
+        }
+        .confirmationDialog("Uninstall \(formula.name)?", isPresented: $showUninstallConfirm, titleVisibility: .visible) {
+            Button("Uninstall", role: .destructive) {
+                Task { await vm.uninstallFormula(name: formula.name) }
+            }
+        } message: {
+            Text("This action cannot be undone.")
         }
     }
 
@@ -225,16 +237,18 @@ struct BreweryDetailView: View {
                 
                 Menu {
                     Button("uninstall", role: .destructive) {
-                        Task { await vm.uninstallCask(name: cask.name) }
+                        zapOnUninstall = false
+                        showUninstallConfirm = true
                     }
-                    
+
                     Button("uninstall + delete data", role: .destructive) {
-                        Task { await vm.uninstallCaskWithZap(name: cask.name) }
+                        zapOnUninstall = true
+                        showUninstallConfirm = true
                     }
                 } label: {
                     Text("uninstall")
-                        .foregroundStyle(.red)
                 }
+                .tint(.red)
                 
             }
 
@@ -247,6 +261,23 @@ struct BreweryDetailView: View {
                 .frame(maxHeight: 200)
                 .textSelection(.enabled)
             }
+        }
+        .confirmationDialog(
+            zapOnUninstall ? "Uninstall \(cask.name) and delete data?" : "Uninstall \(cask.name)?",
+            isPresented: $showUninstallConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(zapOnUninstall ? "Uninstall + Delete Data" : "Uninstall", role: .destructive) {
+                Task {
+                    if zapOnUninstall {
+                        await vm.uninstallCaskWithZap(name: cask.name)
+                    } else {
+                        await vm.uninstallCask(name: cask.name)
+                    }
+                }
+            }
+        } message: {
+            Text(zapOnUninstall ? "This will also delete all associated data." : "This action cannot be undone.")
         }
     }
 }

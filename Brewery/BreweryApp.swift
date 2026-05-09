@@ -16,5 +16,9 @@ struct breweryApp: App {
         }
         .defaultSize(width: 900, height: 600)
         .windowResizability(.contentMinSize)
+
+        Settings {
+            SettingsView()
+        }
     }
 }

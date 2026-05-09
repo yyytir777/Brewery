@@ -26,3 +26,11 @@ A macOS GUI app for managing Homebrew packages.
 
 - macOS 13.0+
 - [Homebrew](https://brew.sh) installed at `/opt/homebrew/bin/brew`
+
+
+## Changelog
+
+### 1.0.5
+- Added confirmation dialog before uninstalling Formula and Cask packages
+- Added Settings window (Cmd+,) with log file management (view size, open, clear)
+- Fixed layout issues on smaller screens (13-inch and below)
