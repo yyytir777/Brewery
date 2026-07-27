@@ -11,12 +11,6 @@ struct HomeView: View {
     
     @ObservedObject var vm: BreweryViewModel
     
-    var outdatedCount: Int {
-        let formulae = vm.installedFormula.filter { $0.outdated }.count
-        let casks = vm.installedCasks.filter { $0.outdated }.count
-        return formulae + casks
-    }
-    
     var body: some View {
         
         VStack(spacing: 24) {
@@ -43,8 +37,7 @@ struct HomeView: View {
             }
             
             HStack(spacing: 20) {
-                StatCard(title: "Outdated", value:
-                            "\(outdatedCount)", isLoading: vm.isLoading)
+                StatCard(title: "Outdated", value: "\(vm.outdatedCount)", isLoading: vm.isLoading)
                 
                 VStack(spacing: 16) {
                     Button(action: { Task { await vm.brewSelfUpdate() } }) {

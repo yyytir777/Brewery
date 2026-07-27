@@ -30,6 +30,8 @@ class BreweryViewModel: ObservableObject {
     
     @Published var brewVersion: String = ""
     @Published var brewSize: String = ""
+    @Published private(set) var outdatedFormulaNames: Set<String> = []
+    @Published private(set) var outdatedCaskNames: Set<String> = []
     
     @Published var searchResults: [SearchResult] = []
     @Published var isSearching = false
@@ -50,6 +52,19 @@ class BreweryViewModel: ObservableObject {
 
     var installedCasks: [BreweryCask] {
         caskMap.values.sorted { $0.name < $1.name }
+    }
+
+    var outdatedCount: Int {
+        outdatedFormulaNames.count + outdatedCaskNames.count
+    }
+
+    func isOutdated(_ id: PackageID) -> Bool {
+        switch id.kind {
+        case .formula:
+            return outdatedFormulaNames.contains(id.name)
+        case .cask:
+            return outdatedCaskNames.contains(id.name)
+        }
     }
 
     func getFormula(for name: String) -> BreweryFormula? {
@@ -80,6 +95,7 @@ class BreweryViewModel: ObservableObject {
         let result = await execResult(args)
         guard result.succeeded else { return }
         await loadAllBrew()
+        await loadOutdatedPackages()
     }
 
     init(loadOnInit: Bool = true) {
@@ -91,17 +107,37 @@ class BreweryViewModel: ObservableObject {
     func loadInstalled() async {
         isLoading = true
         await loadAllBrew()
+        await loadOutdatedPackages()
         await loadBrewMeta()
         isLoading = false
     }
     
     public func loadBrewMeta() async {
         let version = await exec(["--version"])
-        brewVersion = version.components(separatedBy: "").first ?? ""
+        brewVersion = BreweryMetadata.parseVersion(from: version)
         
         let info = await exec(["info"])
-        brewSize = info.components(separatedBy: ", ").last ?? ""
-        
+        brewSize = BreweryMetadata.parseSize(from: info)
+    }
+
+    private func loadOutdatedPackages() async {
+        let commandResult = await BreweryCommand.run(["outdated", "--json=v2"], logOutput: false)
+        guard let data = commandResult.stdout.data(using: .utf8) else {
+            outdatedFormulaNames = []
+            outdatedCaskNames = []
+            recordFailure(commandResult)
+            return
+        }
+
+        do {
+            let result = try JSONDecoder().decode(BrewOutdatedResult.self, from: data)
+            outdatedFormulaNames = Set(result.formulae.map(\.name))
+            outdatedCaskNames = Set(result.casks.map(\.name))
+        } catch {
+            outdatedFormulaNames = []
+            outdatedCaskNames = []
+            recordFailure(commandResult)
+        }
     }
 
     public func loadAllBrew() async {
@@ -131,6 +167,7 @@ class BreweryViewModel: ObservableObject {
         
         isLatestAfterUpdate = (brewVersion == versionBefore)
         await loadAllBrew()
+        await loadOutdatedPackages()
     }
     
     public func brewCleanUp() async {
@@ -141,6 +178,7 @@ class BreweryViewModel: ObservableObject {
         let result = await execResult(["cleanup"])
         guard result.succeeded else { return }
         await loadAllBrew()
+        await loadOutdatedPackages()
     }
     
     public func uninstallCask(name: String) async {
@@ -151,6 +189,7 @@ class BreweryViewModel: ObservableObject {
         let result = await execResult(["uninstall", "--cask", name])
         guard result.succeeded else { return }
         await loadAllBrew()
+        await loadOutdatedPackages()
     }
     
     public func uninstallCaskWithZap(name: String) async {
@@ -161,6 +200,7 @@ class BreweryViewModel: ObservableObject {
         let result = await execResult(["uninstall", "--cask", "--zap", name])
         guard result.succeeded else { return }
         await loadAllBrew()
+        await loadOutdatedPackages()
     }
 
     public func uninstallFormula(name: String) async {
@@ -171,6 +211,7 @@ class BreweryViewModel: ObservableObject {
         let result = await execResult(["uninstall", name])
         guard result.succeeded else { return }
         await loadAllBrew()
+        await loadOutdatedPackages()
     }
 
     func fetchInfo(name: String) async -> String {
@@ -186,6 +227,7 @@ class BreweryViewModel: ObservableObject {
         let result = await execResult(["install", "--cask", name])
         guard result.succeeded else { return }
         await loadAllBrew()
+        await loadOutdatedPackages()
     }
     
     public func installFormula(name: String) async {
@@ -197,6 +239,7 @@ class BreweryViewModel: ObservableObject {
         let result = await execResult(["install", name])
         guard result.succeeded else { return }
         await loadAllBrew()
+        await loadOutdatedPackages()
     }
     
     func search(query: String) async {

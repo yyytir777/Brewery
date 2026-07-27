@@ -27,3 +27,39 @@ final class BreweryParsingTests: XCTestCase {
         XCTAssertNil(validatedHTTPURL(from: "file:///etc/passwd"))
     }
 }
+
+final class BreweryMetadataTests: XCTestCase {
+    func testParseVersionUsesFirstNonEmptyLine() {
+        let output = "\nHomebrew 4.5.0\nHomebrew/homebrew-core abc123\n"
+
+        XCTAssertEqual(BreweryMetadata.parseVersion(from: output), "Homebrew 4.5.0")
+    }
+
+    func testParseSizeUsesLastCommaSeparatedComponentWhenPresent() {
+        let output = "Homebrew 4.5.0 (/opt/homebrew)\n24 files, 74.3MB\n"
+
+        XCTAssertEqual(BreweryMetadata.parseSize(from: output), "74.3MB")
+    }
+
+    func testParseSizeReturnsUnknownForEmptyOutput() {
+        XCTAssertEqual(BreweryMetadata.parseSize(from: ""), "unknown")
+    }
+
+    func testOutdatedResultDecodesFormulaeAndCasks() throws {
+        let json = """
+        {
+          "formulae": [
+            { "name": "git", "installed_versions": ["2.1.0"], "current_version": "2.2.0", "pinned": false, "pinned_version": null }
+          ],
+          "casks": [
+            { "name": "firefox", "installed_versions": ["120.0"], "current_version": "121.0" }
+          ]
+        }
+        """
+
+        let result = try JSONDecoder().decode(BrewOutdatedResult.self, from: Data(json.utf8))
+
+        XCTAssertEqual(result.formulae.map(\.name), ["git"])
+        XCTAssertEqual(result.casks.map(\.name), ["firefox"])
+    }
+}

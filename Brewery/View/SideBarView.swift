@@ -20,7 +20,7 @@ struct SidebarView: View {
                         Text(cask.name)
                             .tag(PackageID.cask(cask.name) as PackageID?)
                         Spacer()
-                        if cask.outdated {
+                        if vm.isOutdated(.cask(cask.name)) {
                             Image(systemName: "exclamationmark.circle.fill")
                                 .foregroundStyle(.orange)
                         }
@@ -39,7 +39,7 @@ struct SidebarView: View {
                         Text(formula.name)
                             .tag(PackageID.formula(formula.name) as PackageID?)
                         Spacer()
-                        if formula.outdated {
+                        if vm.isOutdated(.formula(formula.name)) {
                             Image(systemName: "exclamationmark.circle.fill")
                                 .foregroundStyle(.orange)
                         }

@@ -51,8 +51,8 @@ struct BreweryDetailView: View {
                         .font(.title2)
                         .fontWeight(.semibold)
                         .textSelection(.enabled)
-                    if formula.outdated {
-                        Text("→ \(formula.latest_version)")
+                    if vm.isOutdated(.formula(formula.name)) {
+                        Text("-> \(formula.latest_version)")
                             .font(.subheadline)
                             .foregroundStyle(.orange)
                             .textSelection(.enabled)
@@ -68,7 +68,7 @@ struct BreweryDetailView: View {
                             .controlSize(.small)
                         }
                     } else { // 최신버전일 때
-                        Text("latest")
+                        Text("Latest")
                             .font(.subheadline)
                             .foregroundStyle(.green)
                     }
@@ -174,8 +174,8 @@ struct BreweryDetailView: View {
                         .font(.title2)
                         .fontWeight(.semibold)
                         .textSelection(.enabled)
-                    if cask.outdated {
-                        Text("→ \(cask.latest_version)")
+                    if vm.isOutdated(.cask(cask.name)) {
+                        Text("-> \(cask.latest_version)")
                             .font(.subheadline)
                             .foregroundStyle(.orange)
                             .textSelection(.enabled)
@@ -191,7 +191,7 @@ struct BreweryDetailView: View {
                             .controlSize(.small)
                         }
                     } else {
-                        Text("latest")
+                        Text("Latest")
                             .font(.subheadline)
                             .foregroundStyle(.green)
                             .textSelection(.enabled)
