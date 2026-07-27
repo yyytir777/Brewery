@@ -11,6 +11,7 @@
 		6F7C968D2F72543C00BC6F0B /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 6F7C968C2F72543800BC6F0B /* .gitignore */; };
 		A10000000000000000000001 /* BreweryCommandTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* BreweryCommandTests.swift */; };
 		A20000000000000000000001 /* PackageIDTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* PackageIDTests.swift */; };
+		A30000000000000000000001 /* BreweryParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A30000000000000000000002 /* BreweryParsingTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -19,6 +20,7 @@
 		6F7C968C2F72543800BC6F0B /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		A10000000000000000000002 /* BreweryCommandTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreweryCommandTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* PackageIDTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackageIDTests.swift; sourceTree = "<group>"; };
+		A30000000000000000000002 /* BreweryParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreweryParsingTests.swift; sourceTree = "<group>"; };
 		A10000000000000000000003 /* BreweryTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BreweryTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -64,6 +66,7 @@
 			children = (
 				A10000000000000000000002 /* BreweryCommandTests.swift */,
 				A20000000000000000000002 /* PackageIDTests.swift */,
+				A30000000000000000000002 /* BreweryParsingTests.swift */,
 			);
 			path = BreweryTests;
 			sourceTree = "<group>";
@@ -186,6 +189,7 @@
 			files = (
 				A10000000000000000000001 /* BreweryCommandTests.swift in Sources */,
 				A20000000000000000000001 /* PackageIDTests.swift in Sources */,
+				A30000000000000000000001 /* BreweryParsingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

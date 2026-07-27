@@ -7,6 +7,15 @@
 
 import SwiftUI
 
+func validatedHTTPURL(from value: String) -> URL? {
+    guard let url = URL(string: value),
+          let scheme = url.scheme?.lowercased(),
+          ["http", "https"].contains(scheme) else {
+        return nil
+    }
+    return url
+}
+
 func infoRow(key: String, value: String) -> some View {
     HStack {
         Text(key)
@@ -29,13 +38,21 @@ func infoLinkRow(key: String, url: String) -> some View {
             .frame(width: 100, alignment: .leading)
             .textSelection(.enabled)
         Spacer()
-        Link(url, destination: URL(string: url)!)
-            .onHover { hovering in
-                hovering ? NSCursor.pointingHand.push() : NSCursor.pop()
-            }
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .textSelection(.enabled)
+        if let destination = validatedHTTPURL(from: url) {
+            Link(url, destination: destination)
+                .onHover { hovering in
+                    hovering ? NSCursor.pointingHand.push() : NSCursor.pop()
+                }
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .textSelection(.enabled)
+        } else {
+            Text(url.isEmpty ? "unknown" : url)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+        }
     }
     .padding(.vertical, 8)
     .padding(.horizontal, 4)
