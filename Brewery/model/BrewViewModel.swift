@@ -188,7 +188,7 @@ class BreweryViewModel: ObservableObject {
     }
 
     private func exec(_ args: [String], logOutput: Bool = true) async -> String {
-        return await BreweryCommand.run(args, logOutput: logOutput)
+        await BreweryCommand.run(args, logOutput: logOutput).displayOutput
     }
     
     /*
