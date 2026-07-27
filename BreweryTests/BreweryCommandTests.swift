@@ -45,3 +45,34 @@ final class BreweryCommandTests: XCTestCase {
         XCTAssertEqual(failure.displayOutput, "Error: No formulae found.\n")
     }
 }
+
+@MainActor
+final class BreweryViewModelCommandErrorTests: XCTestCase {
+    func testRecordFailurePublishesReadableMessage() {
+        let vm = BreweryViewModel(loadOnInit: false)
+        let result = BreweryCommandResult(
+            arguments: ["install", "definitely-missing-package"],
+            stdout: "",
+            stderr: "Error: No formulae or casks found.\n",
+            exitCode: 1
+        )
+
+        vm.recordFailure(result)
+
+        XCTAssertEqual(vm.lastCommandError, result)
+        XCTAssertEqual(
+            vm.commandErrorMessage,
+            "brew install definitely-missing-package failed with exit code 1.\n\nError: No formulae or casks found."
+        )
+    }
+
+    func testClearCommandErrorRemovesPublishedFailure() {
+        let vm = BreweryViewModel(loadOnInit: false)
+        vm.recordFailure(BreweryCommandResult(arguments: ["update"], stdout: "", stderr: "failed", exitCode: 1))
+
+        vm.clearCommandError()
+
+        XCTAssertNil(vm.lastCommandError)
+        XCTAssertEqual(vm.commandErrorMessage, "")
+    }
+}

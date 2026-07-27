@@ -26,6 +26,7 @@ class BreweryViewModel: ObservableObject {
     
     @Published var installingPackages: Set<String> = []
     @Published var uninstallingPackages: Set<String> = []
+    @Published var lastCommandError: BreweryCommandResult?
     
     @Published var brewVersion: String = ""
     @Published var brewSize: String = ""
@@ -33,6 +34,15 @@ class BreweryViewModel: ObservableObject {
     @Published var searchResults: [SearchResult] = []
     @Published var isSearching = false
     
+    var commandErrorMessage: String {
+        guard let result = lastCommandError else { return "" }
+        let command = "brew " + result.arguments.joined(separator: " ")
+        let output = result.displayOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+        if output.isEmpty {
+            return "\(command) failed with exit code \(result.exitCode)."
+        }
+        return "\(command) failed with exit code \(result.exitCode).\n\n\(output)"
+    }
 
     var installedFormula: [BreweryFormula] {
         formulaMap.values.sorted { $0.name < $1.name }
@@ -57,12 +67,15 @@ class BreweryViewModel: ObservableObject {
         }
         
         let args = isCask ? ["upgrade", "--cask", name] : ["upgrade", name]
-        let _ = await exec(args)
+        let result = await execResult(args)
+        guard result.succeeded else { return }
         await loadAllBrew()
     }
 
-    init() {
-        Task { await loadInstalled() }
+    init(loadOnInit: Bool = true) {
+        if loadOnInit {
+            Task { await loadInstalled() }
+        }
     }
 
     func loadInstalled() async {
@@ -102,7 +115,8 @@ class BreweryViewModel: ObservableObject {
         }
         
         let versionBefore = brewVersion
-        let _ = await exec(["update"])
+        let result = await execResult(["update"])
+        guard result.succeeded else { return }
         await loadBrewMeta()
         
         isLatestAfterUpdate = (brewVersion == versionBefore)
@@ -114,7 +128,8 @@ class BreweryViewModel: ObservableObject {
         defer {
             isRunningCleanup = false
         }
-        let _ = await exec(["cleanup"])
+        let result = await execResult(["cleanup"])
+        guard result.succeeded else { return }
         await loadAllBrew()
     }
     
@@ -123,7 +138,8 @@ class BreweryViewModel: ObservableObject {
         defer {
             uninstallingPackages.remove(name)
         }
-        let _ = await exec(["uninstall", "--cask", name])
+        let result = await execResult(["uninstall", "--cask", name])
+        guard result.succeeded else { return }
         await loadAllBrew()
     }
     
@@ -132,7 +148,8 @@ class BreweryViewModel: ObservableObject {
         defer {
             uninstallingPackages.remove(name)
         }
-        let _ = await exec(["uninstall", "--cask", "--zap", name])
+        let result = await execResult(["uninstall", "--cask", "--zap", name])
+        guard result.succeeded else { return }
         await loadAllBrew()
     }
 
@@ -141,7 +158,8 @@ class BreweryViewModel: ObservableObject {
         defer {
             uninstallingPackages.remove(name)
         }
-        let _ = await exec(["uninstall", name])
+        let result = await execResult(["uninstall", name])
+        guard result.succeeded else { return }
         await loadAllBrew()
     }
 
@@ -155,7 +173,8 @@ class BreweryViewModel: ObservableObject {
             installingPackages.remove(name)
         }
         
-        let _ = await exec(["install", "--cask", name])
+        let result = await execResult(["install", "--cask", name])
+        guard result.succeeded else { return }
         await loadAllBrew()
     }
     
@@ -165,7 +184,8 @@ class BreweryViewModel: ObservableObject {
             installingPackages.remove(name)
         }
         
-        let _ = await exec(["install", name])
+        let result = await execResult(["install", name])
+        guard result.succeeded else { return }
         await loadAllBrew()
     }
     
@@ -187,8 +207,25 @@ class BreweryViewModel: ObservableObject {
         return (result.formulae.first, result.casks.first)
     }
 
+    func recordFailure(_ result: BreweryCommandResult) {
+        guard !result.succeeded else { return }
+        lastCommandError = result
+    }
+
+    func clearCommandError() {
+        lastCommandError = nil
+    }
+
+    private func execResult(_ args: [String], logOutput: Bool = true) async -> BreweryCommandResult {
+        let result = await BreweryCommand.run(args, logOutput: logOutput)
+        if !result.succeeded {
+            recordFailure(result)
+        }
+        return result
+    }
+
     private func exec(_ args: [String], logOutput: Bool = true) async -> String {
-        await BreweryCommand.run(args, logOutput: logOutput).displayOutput
+        await execResult(args, logOutput: logOutput).displayOutput
     }
     
     /*

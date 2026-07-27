@@ -44,6 +44,20 @@ struct MainView: View {
                 }
             }
         }
+        .alert("Homebrew Command Failed", isPresented: Binding(
+            get: { vm.lastCommandError != nil },
+            set: { isPresented in
+                if !isPresented {
+                    vm.clearCommandError()
+                }
+            }
+        )) {
+            Button("OK") {
+                vm.clearCommandError()
+            }
+        } message: {
+            Text(vm.commandErrorMessage)
+        }
         .onTapGesture {
             Task { @MainActor in
                 NSApp.keyWindow?.makeFirstResponder(nil)
