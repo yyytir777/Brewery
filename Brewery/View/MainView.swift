@@ -10,7 +10,7 @@ import SwiftUI
 struct MainView: View {
     // 설치된 Cask, Formula 저장
     @StateObject var vm = BreweryViewModel()
-    @State private var selected: String? = nil
+    @State private var selected: PackageID? = nil
     @State private var searchText = ""
     @State private var showSearch = false
 
@@ -20,11 +20,11 @@ struct MainView: View {
                 .navigationSplitViewColumnWidth(min: 200, ideal: 250, max: 350)
                 .focusable(false)
         } detail: {
-            if let name = selected {
-                BreweryDetailView(vm: vm, name: name) { dep in
-                    selected = dep
+            if let packageID = selected {
+                BreweryDetailView(vm: vm, packageID: packageID) { dep in
+                    selected = .formula(dep)
                 }
-                    .id(selected)
+                    .id(packageID.id)
                     .frame(minWidth: 380)
             } else if showSearch {
                 SearchView(vm: vm, selected: $selected, showSearch: $showSearch)

@@ -9,7 +9,7 @@ import SwiftUI
 
 struct SearchView: View {
     @ObservedObject var vm: BreweryViewModel
-    @Binding var selected: String?
+    @Binding var selected: PackageID?
     @Binding var showSearch: Bool
     @State private var query = ""
     @State private var hasSearched = false
@@ -48,7 +48,7 @@ struct SearchView: View {
             } else {
                 List(vm.searchResults) { result in
                     SearchResultRow(vm: vm, result: result) {
-                        selected = result.name
+                        selected = result.packageID
                         showSearch = false
                     }
                 }

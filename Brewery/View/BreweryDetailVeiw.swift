@@ -12,7 +12,7 @@ struct BreweryDetailView: View {
     // BreweryViewModel 안에 있는 @Published 객체의 변경을 감지
     @ObservedObject var vm: BreweryViewModel
 
-    let name: String
+    let packageID: PackageID
     let onNavigate: (String) -> Void
 
     @State private var showMoreInfo = false
@@ -23,9 +23,9 @@ struct BreweryDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                if let formula = vm.getFormula(for: name) {
+                if let formula = vm.formula(for: packageID) {
                     detailFormulaSection(formula: formula)
-                } else if let cask = vm.getCask(for: name) {
+                } else if let cask = vm.cask(for: packageID) {
                     detailCaskSection(cask: cask)
                 } else {
                     Text("Information not found.")
@@ -35,9 +35,9 @@ struct BreweryDetailView: View {
             .padding(24)
         }
         .frame(maxWidth: .infinity)
-        .navigationTitle(name)
-        .onAppear {
-            Task { brewInfoText = await vm.fetchInfo(name: name) }
+        .navigationTitle(packageID.name)
+        .task(id: packageID.id) {
+            brewInfoText = await vm.fetchInfo(name: packageID.name)
         }
     }
 
@@ -325,5 +325,5 @@ struct FlowLayout: Layout {
 }
 
 #Preview {
-    BreweryDetailView(vm: BreweryViewModel(), name: "curl", onNavigate: { _ in })
+    BreweryDetailView(vm: BreweryViewModel(), packageID: .formula("curl"), onNavigate: { _ in })
 }

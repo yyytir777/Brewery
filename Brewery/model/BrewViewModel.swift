@@ -59,6 +59,16 @@ class BreweryViewModel: ObservableObject {
     func getCask(for name: String) -> BreweryCask? {
         caskMap[name]
     }
+
+    func formula(for id: PackageID) -> BreweryFormula? {
+        guard id.kind == .formula else { return nil }
+        return formulaMap[id.name]
+    }
+
+    func cask(for id: PackageID) -> BreweryCask? {
+        guard id.kind == .cask else { return nil }
+        return caskMap[id.name]
+    }
     
     func updateBrew(name: String, isCask: Bool = false) async -> Void {
         updatingPackageNames.insert(name)

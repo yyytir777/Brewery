@@ -6,7 +6,8 @@
 //
 
 struct SearchResult: Decodable, Identifiable {
-    var id: String { "\(isCask ? "cask" : "formula")_\(name)" }
+    var id: String { packageID.id }
+    var packageID: PackageID { isCask ? .cask(name) : .formula(name) }
     let name: String
     let isCask: Bool
 }
