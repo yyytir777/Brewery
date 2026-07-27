@@ -50,10 +50,11 @@ struct HomeView: View {
                     .controlSize(.large)
 
                     Button(action: { Task { await vm.brewCleanUp() } }) {
-                        Label(vm.isRunningCleanup ? "Cleaing..." : "Brew Cleanup", systemImage: "trash")
+                        Label(vm.isRunningCleanup ? "Cleaning..." : "Brew Cleanup", systemImage: "trash")
                             .frame(maxWidth: .infinity)
 
                     }
+                    .disabled(vm.isRunningCleanup)
                     .controlSize(.large)
                 }
                 .frame(maxWidth: .infinity, minHeight: 100)

@@ -20,11 +20,13 @@ func infoRow(key: String, value: String) -> some View {
     HStack {
         Text(key)
             .foregroundStyle(.secondary)
-            .frame(width: 100, alignment: .leading)
+            .frame(width: 120, alignment: .leading)
             .textSelection(.enabled)
         Spacer()
         Text(value)
             .multilineTextAlignment(.trailing)
+            .lineLimit(2)
+            .truncationMode(.middle)
             .textSelection(.enabled)
     }
     .padding(.vertical, 8)
@@ -35,7 +37,7 @@ func infoLinkRow(key: String, url: String) -> some View {
     HStack {
         Text(key)
             .foregroundStyle(.secondary)
-            .frame(width: 100, alignment: .leading)
+            .frame(width: 120, alignment: .leading)
             .textSelection(.enabled)
         Spacer()
         if let destination = validatedHTTPURL(from: url) {

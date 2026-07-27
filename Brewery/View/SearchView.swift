@@ -38,7 +38,7 @@ struct SearchView: View {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if !hasSearched {
-                Text("Search for a formla or cask")
+                Text("Search for a formula or cask")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if vm.searchResults.isEmpty {

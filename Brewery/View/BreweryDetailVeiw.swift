@@ -61,7 +61,7 @@ struct BreweryDetailView: View {
                             ProgressView()
                                 .controlSize(.small)
                         } else {
-                            Button("update") {
+                            Button("Update") {
                                 Task { await vm.updateBrew(name: formula.name, isCask: false) }
                             }
                             .buttonStyle(.borderedProminent)
@@ -137,11 +137,12 @@ struct BreweryDetailView: View {
                 
                 Spacer()
                 
-                Button("uninstall", role: .destructive) {
+                Button("Uninstall", role: .destructive) {
                     zapOnUninstall = false
                     showUninstallConfirm = true
                 }
                 .tint(.red)
+                .disabled(vm.uninstallingPackages.contains(formula.name))
             }
 
             if showMoreInfo {
@@ -184,7 +185,7 @@ struct BreweryDetailView: View {
                             ProgressView()
                                 .controlSize(.small)
                         } else {
-                            Button("update") {
+                            Button("Update") {
                                 Task { await vm.updateBrew(name: cask.name, isCask: true) }
                             }
                             .buttonStyle(.borderedProminent)
@@ -217,7 +218,7 @@ struct BreweryDetailView: View {
                         Divider()
                         infoLinkRow(key: "Homepage", url: cask.homepage)
                         Divider()
-                        infoRow(key: "auto updates", value: cask.auto_updates == true ? "O" : "X")
+                        infoRow(key: "Auto updates", value: cask.auto_updates == true ? "Yes" : "No")
                     }
                 }
             }
@@ -236,19 +237,20 @@ struct BreweryDetailView: View {
                 Spacer()
                 
                 Menu {
-                    Button("uninstall", role: .destructive) {
+                    Button("Uninstall", role: .destructive) {
                         zapOnUninstall = false
                         showUninstallConfirm = true
                     }
 
-                    Button("uninstall + delete data", role: .destructive) {
+                    Button("Uninstall and Delete Data", role: .destructive) {
                         zapOnUninstall = true
                         showUninstallConfirm = true
                     }
                 } label: {
-                    Text("uninstall")
+                    Text("Uninstall")
                 }
                 .tint(.red)
+                .disabled(vm.uninstallingPackages.contains(cask.name))
                 
             }
 
@@ -267,7 +269,7 @@ struct BreweryDetailView: View {
             isPresented: $showUninstallConfirm,
             titleVisibility: .visible
         ) {
-            Button(zapOnUninstall ? "Uninstall + Delete Data" : "Uninstall", role: .destructive) {
+            Button(zapOnUninstall ? "Uninstall and Delete Data" : "Uninstall", role: .destructive) {
                 Task {
                     if zapOnUninstall {
                         await vm.uninstallCaskWithZap(name: cask.name)
