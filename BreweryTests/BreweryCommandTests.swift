@@ -44,6 +44,17 @@ final class BreweryCommandTests: XCTestCase {
         XCTAssertFalse(failure.succeeded)
         XCTAssertEqual(failure.displayOutput, "Error: No formulae found.\n")
     }
+
+    func testCommandResultFailureOutputKeepsStderrWhenStdoutAlsoExists() {
+        let failure = BreweryCommandResult(
+            arguments: ["upgrade", "git"],
+            stdout: "Downloading dependencies...\n",
+            stderr: "Error: git is not installed.\n",
+            exitCode: 1
+        )
+
+        XCTAssertEqual(failure.failureOutput, "Error: git is not installed.\n\nDownloading dependencies...")
+    }
 }
 
 @MainActor
@@ -64,6 +75,21 @@ final class BreweryViewModelCommandErrorTests: XCTestCase {
             vm.commandErrorMessage,
             "brew install definitely-missing-package failed with exit code 1.\n\nError: No formulae or casks found."
         )
+    }
+
+    func testRecordFailureMessageIncludesStderrWhenStdoutAlsoExists() {
+        let vm = BreweryViewModel(loadOnInit: false)
+        let result = BreweryCommandResult(
+            arguments: ["upgrade", "git"],
+            stdout: "Downloading dependencies...\n",
+            stderr: "Error: git is not installed.\n",
+            exitCode: 1
+        )
+
+        vm.recordFailure(result)
+
+        XCTAssertTrue(vm.commandErrorMessage.contains("Error: git is not installed."))
+        XCTAssertTrue(vm.commandErrorMessage.contains("Downloading dependencies..."))
     }
 
     func testClearCommandErrorRemovesPublishedFailure() {

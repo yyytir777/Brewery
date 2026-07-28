@@ -8,6 +8,14 @@ struct BreweryCommandResult: Equatable {
 
     var succeeded: Bool { exitCode == 0 }
     var displayOutput: String { stdout.isEmpty ? stderr : stdout }
+    var failureOutput: String {
+        let trimmedStdout = stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedStderr = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmedStdout.isEmpty { return trimmedStderr }
+        if trimmedStderr.isEmpty { return trimmedStdout }
+        return "\(trimmedStderr)\n\n\(trimmedStdout)"
+    }
 }
 
 final class BreweryCommand {

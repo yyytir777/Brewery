@@ -63,3 +63,80 @@ final class BreweryMetadataTests: XCTestCase {
         XCTAssertEqual(result.casks.map(\.name), ["firefox"])
     }
 }
+
+@MainActor
+final class BreweryViewModelOutdatedTests: XCTestCase {
+    func testLoadOutdatedPackagesAcceptsValidJsonFromNonZeroExitCode() async {
+        let json = """
+        {
+          "formulae": [
+            { "name": "git", "installed_versions": ["2.1.0"], "current_version": "2.2.0", "pinned": false, "pinned_version": null }
+          ],
+          "casks": [
+            { "name": "firefox", "installed_versions": ["120.0"], "current_version": "121.0" }
+          ]
+        }
+        """
+        let vm = BreweryViewModel(loadOnInit: false) { arguments, _ in
+            BreweryCommandResult(arguments: arguments, stdout: json, stderr: "", exitCode: 1)
+        }
+
+        await vm.loadOutdatedPackages()
+
+        XCTAssertTrue(vm.isOutdated(.formula("git")))
+        XCTAssertTrue(vm.isOutdated(.cask("firefox")))
+        XCTAssertNil(vm.lastCommandError)
+    }
+
+    func testLoadOutdatedPackagesRetainsPreviousStateWhenJsonParseFails() async {
+        var responses = [
+            BreweryCommandResult(
+                arguments: ["outdated", "--json=v2"],
+                stdout: """
+                {
+                  "formulae": [
+                    { "name": "git", "installed_versions": ["2.1.0"], "current_version": "2.2.0", "pinned": false, "pinned_version": null }
+                  ],
+                  "casks": []
+                }
+                """,
+                stderr: "",
+                exitCode: 0
+            ),
+            BreweryCommandResult(
+                arguments: ["outdated", "--json=v2"],
+                stdout: "{ malformed json",
+                stderr: "",
+                exitCode: 0
+            )
+        ]
+        let vm = BreweryViewModel(loadOnInit: false) { _, _ in
+            responses.removeFirst()
+        }
+
+        await vm.loadOutdatedPackages()
+        await vm.loadOutdatedPackages()
+
+        XCTAssertTrue(vm.isOutdated(.formula("git")))
+        XCTAssertFalse(vm.isOutdated(.cask("firefox")))
+        XCTAssertTrue(vm.commandErrorMessage.contains("Failed to parse Homebrew outdated package data"))
+    }
+
+    func testLoadOutdatedPackagesRecordsCommandFailureWhenNoJsonIsReturned() async {
+        let vm = BreweryViewModel(loadOnInit: false) { arguments, _ in
+            BreweryCommandResult(
+                arguments: arguments,
+                stdout: "",
+                stderr: "Error: Homebrew is temporarily unavailable.",
+                exitCode: 1
+            )
+        }
+
+        await vm.loadOutdatedPackages()
+
+        XCTAssertEqual(
+            vm.commandErrorMessage,
+            "brew outdated --json=v2 failed with exit code 1.\n\nError: Homebrew is temporarily unavailable."
+        )
+    }
+}

@@ -8,6 +8,8 @@
 import SwiftUI
 import Combine
 
+typealias BreweryCommandRunner = (_ arguments: [String], _ logOutput: Bool) async -> BreweryCommandResult
+
 @MainActor
 class BreweryViewModel: ObservableObject {
     // 설치된 formula 정보
@@ -35,11 +37,12 @@ class BreweryViewModel: ObservableObject {
     
     @Published var searchResults: [SearchResult] = []
     @Published var isSearching = false
+    private let commandRunner: BreweryCommandRunner
     
     var commandErrorMessage: String {
         guard let result = lastCommandError else { return "" }
         let command = "brew " + result.arguments.joined(separator: " ")
-        let output = result.displayOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let output = result.failureOutput
         if output.isEmpty {
             return "\(command) failed with exit code \(result.exitCode)."
         }
@@ -98,7 +101,13 @@ class BreweryViewModel: ObservableObject {
         await loadOutdatedPackages()
     }
 
-    init(loadOnInit: Bool = true) {
+    init(
+        loadOnInit: Bool = true,
+        commandRunner: @escaping BreweryCommandRunner = { arguments, logOutput in
+            await BreweryCommand.run(arguments, logOutput: logOutput)
+        }
+    ) {
+        self.commandRunner = commandRunner
         if loadOnInit {
             Task { await loadInstalled() }
         }
@@ -120,12 +129,28 @@ class BreweryViewModel: ObservableObject {
         brewSize = BreweryMetadata.parseSize(from: info)
     }
 
-    private func loadOutdatedPackages() async {
-        let commandResult = await BreweryCommand.run(["outdated", "--json=v2"], logOutput: false)
+    func loadOutdatedPackages() async {
+        let arguments = ["outdated", "--json=v2"]
+        let commandResult = await commandRunner(arguments, false)
+        let trimmedOutput = commandResult.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedOutput.isEmpty else {
+            if commandResult.succeeded {
+                outdatedFormulaNames = []
+                outdatedCaskNames = []
+            } else {
+                recordFailure(commandResult)
+            }
+            return
+        }
+
         guard let data = commandResult.stdout.data(using: .utf8) else {
-            outdatedFormulaNames = []
-            outdatedCaskNames = []
-            recordFailure(commandResult)
+            recordOutdatedParseFailure(
+                arguments: arguments,
+                output: commandResult.stdout,
+                stderr: commandResult.stderr,
+                errorDescription: "Output was not valid UTF-8."
+            )
             return
         }
 
@@ -134,9 +159,12 @@ class BreweryViewModel: ObservableObject {
             outdatedFormulaNames = Set(result.formulae.map(\.name))
             outdatedCaskNames = Set(result.casks.map(\.name))
         } catch {
-            outdatedFormulaNames = []
-            outdatedCaskNames = []
-            recordFailure(commandResult)
+            recordOutdatedParseFailure(
+                arguments: arguments,
+                output: commandResult.stdout,
+                stderr: commandResult.stderr,
+                errorDescription: error.localizedDescription
+            )
         }
     }
 
@@ -265,12 +293,24 @@ class BreweryViewModel: ObservableObject {
         lastCommandError = result
     }
 
+    private func recordOutdatedParseFailure(arguments: [String], output: String, stderr: String, errorDescription: String) {
+        let trimmedStderr = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parseMessage = "Failed to parse Homebrew outdated package data: \(errorDescription)"
+        let diagnostic = trimmedStderr.isEmpty ? parseMessage : "\(parseMessage)\n\n\(trimmedStderr)"
+        lastCommandError = BreweryCommandResult(
+            arguments: arguments,
+            stdout: output,
+            stderr: diagnostic,
+            exitCode: 1
+        )
+    }
+
     func clearCommandError() {
         lastCommandError = nil
     }
 
     private func execResult(_ args: [String], logOutput: Bool = true) async -> BreweryCommandResult {
-        let result = await BreweryCommand.run(args, logOutput: logOutput)
+        let result = await commandRunner(args, logOutput)
         if !result.succeeded {
             recordFailure(result)
         }
