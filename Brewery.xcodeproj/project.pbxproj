@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		6FA17A032F8000010000A003 /* Aptabase in Frameworks */ = {isa = PBXBuildFile; productRef = 6FA17A022F8000010000A002 /* Aptabase */; };
 		6F4D88E62F724A7400576597 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 6F4D88E52F724A7400576597 /* README.md */; };
 		6F7C968D2F72543C00BC6F0B /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 6F7C968C2F72543800BC6F0B /* .gitignore */; };
 /* End PBXBuildFile section */
@@ -30,6 +31,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6FA17A032F8000010000A003 /* Aptabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -74,6 +76,7 @@
 			);
 			name = Brewery;
 			packageProductDependencies = (
+				6FA17A022F8000010000A002 /* Aptabase */,
 			);
 			productName = brewery;
 			productReference = 6F0996BB2EE9CEA800CBDF38 /* Brewery.app */;
@@ -103,6 +106,9 @@
 			);
 			mainGroup = 6F0996B22EE9CEA800CBDF38;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				6FA17A012F8000010000A001 /* XCRemoteSwiftPackageReference "aptabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6F0996BC2EE9CEA800CBDF38 /* Products */;
 			projectDirPath = "";
@@ -281,7 +287,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.0.5;
+				MARKETING_VERSION = 1.0.6;
 				PRODUCT_BUNDLE_IDENTIFIER = yyytir777.Brewery;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -319,7 +325,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.0.5;
+				MARKETING_VERSION = 1.0.6;
 				PRODUCT_BUNDLE_IDENTIFIER = yyytir777.Brewery;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -360,6 +366,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		6FA17A012F8000010000A001 /* XCRemoteSwiftPackageReference "aptabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/aptabase/aptabase-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.3.11;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6FA17A022F8000010000A002 /* Aptabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6FA17A012F8000010000A001 /* XCRemoteSwiftPackageReference "aptabase-swift" */;
+			productName = Aptabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 6F0996B32EE9CEA800CBDF38 /* Project object */;
 }

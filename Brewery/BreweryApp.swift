@@ -9,7 +9,11 @@ import SwiftUI
 
 @main
 struct breweryApp: App {
-    
+
+    init() {
+        BreweryTelemetry.start()
+    }
+
     var body: some Scene {
         WindowGroup {
             MainView()
