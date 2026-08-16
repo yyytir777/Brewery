@@ -122,9 +122,9 @@ struct CatalogPackage: Codable, Identifiable, Hashable {
 }
 
 enum RankingWindow: String, CaseIterable, Codable {
-    case days30
-    case days90
-    case days365
+    case days30 = "30d"
+    case days90 = "90d"
+    case days365 = "365d"
 }
 
 struct PackageRanking: Codable, Hashable {
@@ -132,9 +132,15 @@ struct PackageRanking: Codable, Hashable {
     let installs: Int
     let rank: Int
 }
+
+struct CatalogSnapshot: Codable {
+    let schemaVersion: Int
+    let generatedAt: Date
+    let packages: [CatalogPackage]
+}
 ```
 
-Network response types remain private to `CatalogService`. UI code depends only on normalized internal models.
+`PackageRanking.packageID` uses the same `"kind:name"` format as `CatalogPackage.id`. Both the bundled catalog and refreshed catalog cache use `CatalogSnapshot`, making cache-version validation and bundled-versus-cached freshness comparisons explicit. Network response types remain private to `CatalogService`; UI code depends only on normalized internal models.
 
 ## Data Sources
 
@@ -156,7 +162,7 @@ Examples:
 - `https://formulae.brew.sh/api/analytics/install-on-request/30d.json`
 - `https://formulae.brew.sh/api/analytics/cask-install/homebrew-cask/30d.json`
 
-Formula and Cask rankings are normalized to the same internal type and merged only after their respective package kind is known.
+Formula and Cask rankings are normalized to the same internal type and merged only after their respective package kind is known. With the `All` filter selected, Brewery recomputes one cross-kind rank by descending install count; ties sort by package name. Formula-only and Cask-only views rank within their selected kind.
 
 ## Loading and Refresh Flow
 
@@ -164,8 +170,8 @@ Formula and Cask rankings are normalized to the same internal type and merged on
 2. Validate the disk catalog cache and use it if it is newer than the bundled snapshot.
 3. Load cached analytics for the default 30-day window.
 4. Publish Discover content immediately.
-5. If the catalog cache is older than 24 hours, refresh Formula and Cask catalog sources in the background.
-6. If analytics for the selected window is older than 1 hour, refresh both Formula and Cask analytics in the background.
+5. If the catalog cache is missing or older than 24 hours, refresh Formula and Cask catalog sources in the background.
+6. If analytics for the selected window is missing or older than 1 hour, refresh both Formula and Cask analytics in the background.
 7. Normalize and validate complete responses before publishing them.
 8. Write valid data to a temporary file and atomically replace the prior cache.
 9. Preserve the current search query, filters, and scroll context when refreshed data arrives.
