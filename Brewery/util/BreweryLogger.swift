@@ -35,31 +35,36 @@ final class BreweryLogger {
         try FileManager.default.removeItem(at: fileURL)
     }
 
-    func log(command: [String], stdout: String, stderr: String, duration: TimeInterval) async {
+    func log(result: BreweryCommandResult, logOutput: Bool, duration: TimeInterval) async {
         let timestamp = dateFormatter.string(from: Date())
-        var lines = ["[\(timestamp)] CMD: brew \(command.joined(separator: " "))"]
+        var lines = ["[\(timestamp)] CMD: brew \(result.arguments.joined(separator: " "))"]
+        if logOutput, !result.stdout.isEmpty {
+            lines.append("[\(timestamp)] OUT: \(result.stdout.trimmingCharacters(in: .whitespacesAndNewlines))")
+        } else if !logOutput {
+            lines.append("[\(timestamp)] OUT: (output skipped)")
+        }
+        if !result.stderr.isEmpty {
+            lines.append("[\(timestamp)] ERR: \(result.stderr.trimmingCharacters(in: .whitespacesAndNewlines))")
+        }
+        lines.append("[\(timestamp)] EXIT: \(result.exitCode)")
+        lines.append("[\(timestamp)] DONE (\(String(format: "%.2f", duration))s)\n")
+        append(lines.joined(separator: "\n") + "\n")
+    }
 
-              if !stdout.isEmpty {
-                  lines.append("[\(timestamp)] OUT: \(stdout.trimmingCharacters(in: .whitespacesAndNewlines))")
-              }
-        
-              if !stderr.isEmpty {
-                  lines.append("[\(timestamp)] ERR: \(stderr.trimmingCharacters(in: .whitespacesAndNewlines))")
-              }
-        
-              lines.append("[\(timestamp)] DONE (\(String(format: "%.2f", duration))s)\n")
+    func logDiagnostic(_ message: String) async {
+        let timestamp = dateFormatter.string(from: Date())
+        append("[\(timestamp)] INFO: \(message)\n")
+    }
 
-              let entry = lines.joined(separator: "\n") + "\n"
-              guard let data = entry.data(using: .utf8) else { return }
-
-              if FileManager.default.fileExists(atPath: fileURL.path) {
-                  if let handle = try? FileHandle(forWritingTo: fileURL) {
-                      handle.seekToEndOfFile()
-                      handle.write(data)
-                      try? handle.close()
-                  }
-              } else {
-                  try? data.write(to: fileURL, options: .atomic)
-              }
+    private func append(_ entry: String) {
+        guard let data = entry.data(using: .utf8) else { return }
+        if FileManager.default.fileExists(atPath: fileURL.path),
+           let handle = try? FileHandle(forWritingTo: fileURL) {
+            handle.seekToEndOfFile()
+            handle.write(data)
+            try? handle.close()
+        } else {
+            try? data.write(to: fileURL, options: .atomic)
+        }
     }
 }

@@ -5,12 +5,6 @@
 //  Created by Wonjae Lim on 12/11/25.
 //
 
-struct SearchResult: Decodable, Identifiable {
-    var id: String { "\(isCask ? "cask" : "formula")_\(name)" }
-    let name: String
-    let isCask: Bool
-}
-
 struct BrewInfoResult: Decodable {
     let formulae: [BreweryFormula]
     let casks: [BreweryCask]

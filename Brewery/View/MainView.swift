@@ -10,9 +10,9 @@ import SwiftUI
 struct MainView: View {
     // 설치된 Cask, Formula 저장
     @StateObject var vm = BreweryViewModel()
-    @State private var selected: String? = nil
-    @State private var searchText = ""
-    @State private var showSearch = false
+    @State private var selected: String? = "__home"
+    @State private var discoverFocusRequest = 0
+    @StateObject private var discoverViewModel = DiscoverViewModel(service: CatalogService.production())
 
     var body: some View {
         NavigationSplitView {
@@ -20,15 +20,15 @@ struct MainView: View {
                 .navigationSplitViewColumnWidth(min: 200, ideal: 250, max: 350)
                 .focusable(false)
         } detail: {
-            if let name = selected {
+            if selected == "__discover" {
+                DiscoverView(viewModel: discoverViewModel, breweryViewModel: vm, focusRequest: discoverFocusRequest) { id in selected = id.name }
+                    .frame(minWidth: 560, minHeight: 360)
+            } else if let name = selected, name != "__home" {
                 BreweryDetailView(vm: vm, name: name) { dep in
                     selected = dep
                 }
                     .id(selected)
                     .frame(minWidth: 380)
-            } else if showSearch {
-                SearchView(vm: vm, selected: $selected, showSearch: $showSearch)
-                    .frame(minWidth: 380, minHeight: 280, alignment: .top)
             } else {
                 HomeView(vm: vm)
                     .frame(minWidth: 380, minHeight: 280, alignment: .top)
@@ -36,11 +36,11 @@ struct MainView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
-                Button(action: { selected = nil; showSearch = false }) {
+                Button(action: { selected = "__home" }) {
                     Label("Home", systemImage: "house")
                 }
-                Button(action: { selected = nil; showSearch.toggle()}) {
-                    Label("Search", systemImage: "magnifyingglass")
+                Button(action: { selected = "__discover"; discoverFocusRequest += 1 }) {
+                    Label("Discover", systemImage: "magnifyingglass")
                 }
             }
         }
@@ -48,6 +48,14 @@ struct MainView: View {
             Task { @MainActor in
                 NSApp.keyWindow?.makeFirstResponder(nil)
             }
+        }
+        .alert("Homebrew Command Failed", isPresented: Binding(
+            get: { vm.lastCommandError != nil },
+            set: { if !$0 { vm.lastCommandError = nil } }
+        )) {
+            Button("OK") { vm.lastCommandError = nil }
+        } message: {
+            Text(vm.commandErrorMessage)
         }
     }
 }

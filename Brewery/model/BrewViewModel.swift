@@ -24,22 +24,42 @@ class BreweryViewModel: ObservableObject {
     @Published var isRunningUpdate = false
     @Published var isRunningCleanup = false
     
-    @Published var installingPackages: Set<String> = []
+    @Published var installingPackageIDs: Set<PackageID> = []
     @Published var uninstallingPackages: Set<String> = []
+    @Published var lastCommandError: BreweryCommandResult?
     
     @Published var brewVersion: String = ""
     @Published var brewSize: String = ""
     
-    @Published var searchResults: [SearchResult] = []
-    @Published var isSearching = false
-    
-
     var installedFormula: [BreweryFormula] {
         formulaMap.values.sorted { $0.name < $1.name }
     }
 
     var installedCasks: [BreweryCask] {
         caskMap.values.sorted { $0.name < $1.name }
+    }
+
+    var installedPackageIDs: Set<PackageID> {
+        Set(formulaMap.keys.map(PackageID.formula) + caskMap.keys.map(PackageID.cask))
+    }
+
+    var commandErrorMessage: String {
+        guard let result = lastCommandError else { return "" }
+        let command = "brew " + result.arguments.joined(separator: " ")
+        let output = result.displayOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+        return output.isEmpty
+            ? "\(command) failed with exit code \(result.exitCode)."
+            : "\(command) failed with exit code \(result.exitCode).\n\n\(output)"
+    }
+
+    func formula(for id: PackageID) -> BreweryFormula? {
+        guard id.kind == .formula else { return nil }
+        return formulaMap[id.name]
+    }
+
+    func cask(for id: PackageID) -> BreweryCask? {
+        guard id.kind == .cask else { return nil }
+        return caskMap[id.name]
     }
 
     func getFormula(for name: String) -> BreweryFormula? {
@@ -57,8 +77,7 @@ class BreweryViewModel: ObservableObject {
         }
         
         let args = isCask ? ["upgrade", "--cask", name] : ["upgrade", name]
-        let _ = await exec(args)
-        await loadAllBrew()
+        if await execResult(args).succeeded { await loadAllBrew() }
     }
 
     init() {
@@ -102,11 +121,11 @@ class BreweryViewModel: ObservableObject {
         }
         
         let versionBefore = brewVersion
-        let _ = await exec(["update"])
-        await loadBrewMeta()
-        
-        isLatestAfterUpdate = (brewVersion == versionBefore)
-        await loadAllBrew()
+        if await execResult(["update"]).succeeded {
+            await loadBrewMeta()
+            isLatestAfterUpdate = (brewVersion == versionBefore)
+            await loadAllBrew()
+        }
     }
     
     public func brewCleanUp() async {
@@ -114,8 +133,7 @@ class BreweryViewModel: ObservableObject {
         defer {
             isRunningCleanup = false
         }
-        let _ = await exec(["cleanup"])
-        await loadAllBrew()
+        if await execResult(["cleanup"]).succeeded { await loadAllBrew() }
     }
     
     public func uninstallCask(name: String) async {
@@ -123,8 +141,7 @@ class BreweryViewModel: ObservableObject {
         defer {
             uninstallingPackages.remove(name)
         }
-        let _ = await exec(["uninstall", "--cask", name])
-        await loadAllBrew()
+        if await execResult(["uninstall", "--cask", name]).succeeded { await loadAllBrew() }
     }
     
     public func uninstallCaskWithZap(name: String) async {
@@ -132,8 +149,7 @@ class BreweryViewModel: ObservableObject {
         defer {
             uninstallingPackages.remove(name)
         }
-        let _ = await exec(["uninstall", "--cask", "--zap", name])
-        await loadAllBrew()
+        if await execResult(["uninstall", "--cask", "--zap", name]).succeeded { await loadAllBrew() }
     }
 
     public func uninstallFormula(name: String) async {
@@ -141,8 +157,7 @@ class BreweryViewModel: ObservableObject {
         defer {
             uninstallingPackages.remove(name)
         }
-        let _ = await exec(["uninstall", name])
-        await loadAllBrew()
+        if await execResult(["uninstall", name]).succeeded { await loadAllBrew() }
     }
 
     func fetchInfo(name: String) async -> String {
@@ -150,34 +165,23 @@ class BreweryViewModel: ObservableObject {
     }
     
     public func installCask(name: String) async {
-        installingPackages.insert(name)
+        let id = PackageID.cask(name)
+        installingPackageIDs.insert(id)
         defer {
-            installingPackages.remove(name)
+            installingPackageIDs.remove(id)
         }
-        
-        let _ = await exec(["install", "--cask", name])
-        await loadAllBrew()
+
+        if await execResult(["install", "--cask", name]).succeeded { await loadAllBrew() }
     }
     
     public func installFormula(name: String) async {
-        installingPackages.insert(name)
+        let id = PackageID.formula(name)
+        installingPackageIDs.insert(id)
         defer {
-            installingPackages.remove(name)
+            installingPackageIDs.remove(id)
         }
-        
-        let _ = await exec(["install", name])
-        await loadAllBrew()
-    }
-    
-    func search(query: String) async {
-        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-        isSearching = true
-        defer {
-            isSearching = false
-        }
-        
-        let output = await exec(["search", query])
-        searchResults = parseSearchOutput(output)
+
+        if await execResult(["install", name]).succeeded { await loadAllBrew() }
     }
     
     public func fetchPackageInfo(name: String, isCask: Bool) async -> (formula: BreweryFormula?, cask: BreweryCask?) {
@@ -188,24 +192,12 @@ class BreweryViewModel: ObservableObject {
     }
 
     private func exec(_ args: [String], logOutput: Bool = true) async -> String {
-        return await BreweryCommand.run(args, logOutput: logOutput)
+        await execResult(args, logOutput: logOutput).displayOutput
     }
-    
-    /*
-     search 결과를 파싱하여 패키지 이름을 저장
-     */
-    private func parseSearchOutput(_ output: String) -> [SearchResult] {
-        var results: [SearchResult] = []
-        var isCask = false
-        
-        for line in output.components(separatedBy: "\n") {
-            if line.contains("==> Formulae") { isCask = false }
-            else if line.contains("==> Casks") { isCask = true }
-            else {
-                let names = line.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
-                results += names.map { SearchResult(name: $0, isCask: isCask)}
-            }
-        }
-        return results
+
+    private func execResult(_ args: [String], logOutput: Bool = true) async -> BreweryCommandResult {
+        let result = await BreweryCommand.run(args, logOutput: logOutput)
+        if !result.succeeded { lastCommandError = result }
+        return result
     }
 }

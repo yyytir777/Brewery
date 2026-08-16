@@ -12,6 +12,10 @@ struct PackagePreviewView: View {
     @ObservedObject var vm: BreweryViewModel
     let name: String
     let isCask: Bool
+
+    private var packageID: PackageID {
+        isCask ? .cask(name) : .formula(name)
+    }
     
     @State private var formula: BreweryFormula? = nil
     @State private var cask: BreweryCask? = nil
@@ -72,14 +76,14 @@ struct PackagePreviewView: View {
                 
                 HStack {
                     Spacer()
-                    Button("Install") {
+                    Button(vm.installingPackageIDs.contains(packageID) ? "Installing…" : "Install") {
                         Task {
                             if isCask { await vm.installCask(name: name) }
                             else { await vm.installFormula(name: name) }
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(vm.installingPackages.contains(name))
+                    .disabled(vm.installingPackageIDs.contains(packageID))
                 }
                 
             }

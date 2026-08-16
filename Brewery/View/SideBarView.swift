@@ -14,6 +14,10 @@ struct SidebarView: View {
 
     var body: some View {
         List(selection: $selected) {
+            Section {
+                Label("Home", systemImage: "house").tag("__home" as String?)
+                Label("Discover", systemImage: "safari").tag("__discover" as String?)
+            }
             Section("Casks") {
                 ForEach(vm.installedCasks) { cask in
                     HStack {
