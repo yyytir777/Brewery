@@ -10,7 +10,7 @@ import SwiftUI
 struct SidebarView: View {
 
     @ObservedObject var vm: BreweryViewModel
-    @Binding var selected: String?
+    @Binding var selected: PackageID?
 
     var body: some View {
         List(selection: $selected) {
@@ -18,9 +18,9 @@ struct SidebarView: View {
                 ForEach(vm.installedCasks) { cask in
                     HStack {
                         Text(cask.name)
-                            .tag(cask.name as String?)
+                            .tag(PackageID.cask(cask.name) as PackageID?)
                         Spacer()
-                        if cask.outdated {
+                        if vm.isOutdated(.cask(cask.name)) {
                             Image(systemName: "exclamationmark.circle.fill")
                                 .foregroundStyle(.orange)
                         }
@@ -37,9 +37,9 @@ struct SidebarView: View {
                 ForEach(vm.installedFormula) { formula in
                     HStack {
                         Text(formula.name)
-                            .tag(formula.name as String?)
+                            .tag(PackageID.formula(formula.name) as PackageID?)
                         Spacer()
-                        if formula.outdated {
+                        if vm.isOutdated(.formula(formula.name)) {
                             Image(systemName: "exclamationmark.circle.fill")
                                 .foregroundStyle(.orange)
                         }

@@ -12,7 +12,7 @@ struct BreweryDetailView: View {
     // BreweryViewModel 안에 있는 @Published 객체의 변경을 감지
     @ObservedObject var vm: BreweryViewModel
 
-    let name: String
+    let packageID: PackageID
     let onNavigate: (String) -> Void
 
     @State private var showMoreInfo = false
@@ -23,9 +23,9 @@ struct BreweryDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                if let formula = vm.getFormula(for: name) {
+                if let formula = vm.formula(for: packageID) {
                     detailFormulaSection(formula: formula)
-                } else if let cask = vm.getCask(for: name) {
+                } else if let cask = vm.cask(for: packageID) {
                     detailCaskSection(cask: cask)
                 } else {
                     Text("Information not found.")
@@ -35,9 +35,9 @@ struct BreweryDetailView: View {
             .padding(24)
         }
         .frame(maxWidth: .infinity)
-        .navigationTitle(name)
-        .onAppear {
-            Task { brewInfoText = await vm.fetchInfo(name: name) }
+        .navigationTitle(packageID.name)
+        .task(id: packageID.id) {
+            brewInfoText = await vm.fetchInfo(name: packageID.name)
         }
     }
 
@@ -51,8 +51,8 @@ struct BreweryDetailView: View {
                         .font(.title2)
                         .fontWeight(.semibold)
                         .textSelection(.enabled)
-                    if formula.outdated {
-                        Text("→ \(formula.latest_version)")
+                    if vm.isOutdated(.formula(formula.name)) {
+                        Text("-> \(formula.latest_version)")
                             .font(.subheadline)
                             .foregroundStyle(.orange)
                             .textSelection(.enabled)
@@ -61,14 +61,14 @@ struct BreweryDetailView: View {
                             ProgressView()
                                 .controlSize(.small)
                         } else {
-                            Button("update") {
+                            Button("Update") {
                                 Task { await vm.updateBrew(name: formula.name, isCask: false) }
                             }
                             .buttonStyle(.borderedProminent)
                             .controlSize(.small)
                         }
                     } else { // 최신버전일 때
-                        Text("latest")
+                        Text("Latest")
                             .font(.subheadline)
                             .foregroundStyle(.green)
                     }
@@ -137,11 +137,12 @@ struct BreweryDetailView: View {
                 
                 Spacer()
                 
-                Button("uninstall", role: .destructive) {
+                Button("Uninstall", role: .destructive) {
                     zapOnUninstall = false
                     showUninstallConfirm = true
                 }
                 .tint(.red)
+                .disabled(vm.uninstallingPackages.contains(formula.name))
             }
 
             if showMoreInfo {
@@ -174,8 +175,8 @@ struct BreweryDetailView: View {
                         .font(.title2)
                         .fontWeight(.semibold)
                         .textSelection(.enabled)
-                    if cask.outdated {
-                        Text("→ \(cask.latest_version)")
+                    if vm.isOutdated(.cask(cask.name)) {
+                        Text("-> \(cask.latest_version)")
                             .font(.subheadline)
                             .foregroundStyle(.orange)
                             .textSelection(.enabled)
@@ -184,14 +185,14 @@ struct BreweryDetailView: View {
                             ProgressView()
                                 .controlSize(.small)
                         } else {
-                            Button("update") {
+                            Button("Update") {
                                 Task { await vm.updateBrew(name: cask.name, isCask: true) }
                             }
                             .buttonStyle(.borderedProminent)
                             .controlSize(.small)
                         }
                     } else {
-                        Text("latest")
+                        Text("Latest")
                             .font(.subheadline)
                             .foregroundStyle(.green)
                             .textSelection(.enabled)
@@ -217,7 +218,7 @@ struct BreweryDetailView: View {
                         Divider()
                         infoLinkRow(key: "Homepage", url: cask.homepage)
                         Divider()
-                        infoRow(key: "auto updates", value: cask.auto_updates == true ? "O" : "X")
+                        infoRow(key: "Auto updates", value: cask.auto_updates == true ? "Yes" : "No")
                     }
                 }
             }
@@ -236,19 +237,20 @@ struct BreweryDetailView: View {
                 Spacer()
                 
                 Menu {
-                    Button("uninstall", role: .destructive) {
+                    Button("Uninstall", role: .destructive) {
                         zapOnUninstall = false
                         showUninstallConfirm = true
                     }
 
-                    Button("uninstall + delete data", role: .destructive) {
+                    Button("Uninstall and Delete Data", role: .destructive) {
                         zapOnUninstall = true
                         showUninstallConfirm = true
                     }
                 } label: {
-                    Text("uninstall")
+                    Text("Uninstall")
                 }
                 .tint(.red)
+                .disabled(vm.uninstallingPackages.contains(cask.name))
                 
             }
 
@@ -267,7 +269,7 @@ struct BreweryDetailView: View {
             isPresented: $showUninstallConfirm,
             titleVisibility: .visible
         ) {
-            Button(zapOnUninstall ? "Uninstall + Delete Data" : "Uninstall", role: .destructive) {
+            Button(zapOnUninstall ? "Uninstall and Delete Data" : "Uninstall", role: .destructive) {
                 Task {
                     if zapOnUninstall {
                         await vm.uninstallCaskWithZap(name: cask.name)
@@ -325,5 +327,5 @@ struct FlowLayout: Layout {
 }
 
 #Preview {
-    BreweryDetailView(vm: BreweryViewModel(), name: "curl", onNavigate: { _ in })
+    BreweryDetailView(vm: BreweryViewModel(), packageID: .formula("curl"), onNavigate: { _ in })
 }

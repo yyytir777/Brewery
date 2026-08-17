@@ -6,7 +6,8 @@
 //
 
 struct SearchResult: Decodable, Identifiable {
-    var id: String { "\(isCask ? "cask" : "formula")_\(name)" }
+    var id: String { packageID.id }
+    var packageID: PackageID { isCask ? .cask(name) : .formula(name) }
     let name: String
     let isCask: Bool
 }
@@ -29,7 +30,7 @@ struct BreweryFormula: Decodable, Identifiable {
     // 버전
     var cur_version: String { installed.first?.version ?? "unknown" }
     var latest_version: String { versions.stable ?? "unknown" }
-    var installed_date: Double? { installed.first!.time }
+    var installed_date: Double? { installed.first?.time }
     let outdated: Bool // 업데이트 가능 여부
     
     // 의존성

@@ -72,7 +72,7 @@ struct PackagePreviewView: View {
                 
                 HStack {
                     Spacer()
-                    Button("Install") {
+                    Button(vm.installingPackages.contains(name) ? "Installing..." : "Install") {
                         Task {
                             if isCask { await vm.installCask(name: name) }
                             else { await vm.installFormula(name: name) }
