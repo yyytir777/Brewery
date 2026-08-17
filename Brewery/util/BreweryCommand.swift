@@ -1,6 +1,6 @@
 import Foundation
 
-struct BreweryCommandResult: Equatable {
+struct BreweryCommandResult: Equatable, Sendable {
     let arguments: [String]
     let stdout: String
     let stderr: String

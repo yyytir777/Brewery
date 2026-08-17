@@ -11,24 +11,32 @@ struct MainView: View {
     // 설치된 Cask, Formula 저장
     @StateObject var vm = BreweryViewModel()
     @State private var selected: PackageID? = nil
-    @State private var searchText = ""
-    @State private var showSearch = false
+    @State private var showDiscover = false
+    @State private var discoverFocusRequest = 0
+    @StateObject private var discoverViewModel = DiscoverViewModel(service: CatalogService.production())
 
     var body: some View {
         NavigationSplitView {
-            SidebarView(vm: vm, selected: $selected)
+            SidebarView(vm: vm, selected: $selected, showDiscover: $showDiscover)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 250, max: 350)
                 .focusable(false)
         } detail: {
-            if let packageID = selected {
+            if showDiscover {
+                DiscoverView(
+                    viewModel: discoverViewModel,
+                    breweryViewModel: vm,
+                    focusRequest: discoverFocusRequest
+                ) { packageID in
+                    selected = packageID
+                    showDiscover = false
+                }
+                .frame(minWidth: 560, minHeight: 360)
+            } else if let packageID = selected {
                 BreweryDetailView(vm: vm, packageID: packageID) { dep in
                     selected = .formula(dep)
                 }
                     .id(packageID.id)
                     .frame(minWidth: 380)
-            } else if showSearch {
-                SearchView(vm: vm, selected: $selected, showSearch: $showSearch)
-                    .frame(minWidth: 380, minHeight: 280, alignment: .top)
             } else {
                 HomeView(vm: vm)
                     .frame(minWidth: 380, minHeight: 280, alignment: .top)
@@ -36,11 +44,15 @@ struct MainView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
-                Button(action: { selected = nil; showSearch = false }) {
+                Button(action: { selected = nil; showDiscover = false }) {
                     Label("Home", systemImage: "house")
                 }
-                Button(action: { selected = nil; showSearch.toggle()}) {
-                    Label("Search", systemImage: "magnifyingglass")
+                Button(action: {
+                    selected = nil
+                    showDiscover = true
+                    discoverFocusRequest += 1
+                }) {
+                    Label("Discover", systemImage: "magnifyingglass")
                 }
             }
         }

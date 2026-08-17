@@ -26,7 +26,7 @@ class BreweryViewModel: ObservableObject {
     @Published var isRunningUpdate = false
     @Published var isRunningCleanup = false
     
-    @Published var installingPackages: Set<String> = []
+    @Published var installingPackageIDs: Set<PackageID> = []
     @Published var uninstallingPackages: Set<String> = []
     @Published var lastCommandError: BreweryCommandResult?
     
@@ -55,6 +55,10 @@ class BreweryViewModel: ObservableObject {
 
     var installedCasks: [BreweryCask] {
         caskMap.values.sorted { $0.name < $1.name }
+    }
+
+    var installedPackageIDs: Set<PackageID> {
+        Set(formulaMap.keys.map(PackageID.formula) + caskMap.keys.map(PackageID.cask))
     }
 
     var outdatedCount: Int {
@@ -247,9 +251,10 @@ class BreweryViewModel: ObservableObject {
     }
     
     public func installCask(name: String) async {
-        installingPackages.insert(name)
+        let packageID = PackageID.cask(name)
+        installingPackageIDs.insert(packageID)
         defer {
-            installingPackages.remove(name)
+            installingPackageIDs.remove(packageID)
         }
         
         let result = await execResult(["install", "--cask", name])
@@ -259,9 +264,10 @@ class BreweryViewModel: ObservableObject {
     }
     
     public func installFormula(name: String) async {
-        installingPackages.insert(name)
+        let packageID = PackageID.formula(name)
+        installingPackageIDs.insert(packageID)
         defer {
-            installingPackages.remove(name)
+            installingPackageIDs.remove(packageID)
         }
         
         let result = await execResult(["install", name])
