@@ -9,25 +9,34 @@
 /* Begin PBXBuildFile section */
 		6F4D88E62F724A7400576597 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 6F4D88E52F724A7400576597 /* README.md */; };
 		6F7C968D2F72543C00BC6F0B /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 6F7C968C2F72543800BC6F0B /* .gitignore */; };
-		A10000000000000000000001 /* BreweryCommandTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* BreweryCommandTests.swift */; };
-		A20000000000000000000001 /* PackageIDTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* PackageIDTests.swift */; };
-		A30000000000000000000001 /* BreweryParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A30000000000000000000002 /* BreweryParsingTests.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		6FD100072FD0000000000007 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6F0996B32EE9CEA800CBDF38 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6F0996BA2EE9CEA800CBDF38;
+			remoteInfo = Brewery;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		6F0996BB2EE9CEA800CBDF38 /* Brewery.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Brewery.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6F4D88E52F724A7400576597 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		6F7C968C2F72543800BC6F0B /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
-		A10000000000000000000002 /* BreweryCommandTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreweryCommandTests.swift; sourceTree = "<group>"; };
-		A20000000000000000000002 /* PackageIDTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackageIDTests.swift; sourceTree = "<group>"; };
-		A30000000000000000000002 /* BreweryParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreweryParsingTests.swift; sourceTree = "<group>"; };
-		A10000000000000000000003 /* BreweryTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BreweryTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6FD100022FD0000000000002 /* BreweryTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BreweryTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6F0996BD2EE9CEA800CBDF38 /* Brewery */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Brewery;
+			sourceTree = "<group>";
+		};
+		6FD100032FD0000000000003 /* BreweryTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BreweryTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -40,7 +49,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A10000000000000000000004 /* Frameworks */ = {
+		6FD100052FD0000000000005 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -56,26 +65,16 @@
 				6F7C968C2F72543800BC6F0B /* .gitignore */,
 				6F4D88E52F724A7400576597 /* README.md */,
 				6F0996BD2EE9CEA800CBDF38 /* Brewery */,
-				A10000000000000000000005 /* BreweryTests */,
+				6FD100032FD0000000000003 /* BreweryTests */,
 				6F0996BC2EE9CEA800CBDF38 /* Products */,
 			);
-			sourceTree = "<group>";
-		};
-		A10000000000000000000005 /* BreweryTests */ = {
-			isa = PBXGroup;
-			children = (
-				A10000000000000000000002 /* BreweryCommandTests.swift */,
-				A20000000000000000000002 /* PackageIDTests.swift */,
-				A30000000000000000000002 /* BreweryParsingTests.swift */,
-			);
-			path = BreweryTests;
 			sourceTree = "<group>";
 		};
 		6F0996BC2EE9CEA800CBDF38 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				6F0996BB2EE9CEA800CBDF38 /* Brewery.app */,
-				A10000000000000000000003 /* BreweryTests.xctest */,
+				6FD100022FD0000000000002 /* BreweryTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -105,23 +104,27 @@
 			productReference = 6F0996BB2EE9CEA800CBDF38 /* Brewery.app */;
 			productType = "com.apple.product-type.application";
 		};
-		A10000000000000000000006 /* BreweryTests */ = {
+		6FD100012FD0000000000001 /* BreweryTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A10000000000000000000007 /* Build configuration list for PBXNativeTarget "BreweryTests" */;
+			buildConfigurationList = 6FD1000B2FD000000000000B /* Build configuration list for PBXNativeTarget "BreweryTests" */;
 			buildPhases = (
-				A10000000000000000000008 /* Sources */,
-				A10000000000000000000004 /* Frameworks */,
+				6FD100042FD0000000000004 /* Sources */,
+				6FD100052FD0000000000005 /* Frameworks */,
+				6FD100062FD0000000000006 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				A10000000000000000000009 /* PBXTargetDependency */,
+				6FD100082FD0000000000008 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				6FD100032FD0000000000003 /* BreweryTests */,
 			);
 			name = BreweryTests;
 			packageProductDependencies = (
 			);
 			productName = BreweryTests;
-			productReference = A10000000000000000000003 /* BreweryTests.xctest */;
+			productReference = 6FD100022FD0000000000002 /* BreweryTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -137,7 +140,7 @@
 					6F0996BA2EE9CEA800CBDF38 = {
 						CreatedOnToolsVersion = 26.1.1;
 					};
-					A10000000000000000000006 = {
+					6FD100012FD0000000000001 = {
 						CreatedOnToolsVersion = 26.1.1;
 						TestTargetID = 6F0996BA2EE9CEA800CBDF38;
 					};
@@ -158,7 +161,7 @@
 			projectRoot = "";
 			targets = (
 				6F0996BA2EE9CEA800CBDF38 /* Brewery */,
-				A10000000000000000000006 /* BreweryTests */,
+				6FD100012FD0000000000001 /* BreweryTests */,
 			);
 		};
 /* End PBXProject section */
@@ -173,6 +176,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6FD100062FD0000000000006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -183,35 +193,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A10000000000000000000008 /* Sources */ = {
+		6FD100042FD0000000000004 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10000000000000000000001 /* BreweryCommandTests.swift in Sources */,
-				A20000000000000000000001 /* PackageIDTests.swift in Sources */,
-				A30000000000000000000001 /* BreweryParsingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		A10000000000000000000009 /* PBXTargetDependency */ = {
+		6FD100082FD0000000000008 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 6F0996BA2EE9CEA800CBDF38 /* Brewery */;
-			targetProxy = A1000000000000000000000A /* PBXContainerItemProxy */;
+			targetProxy = 6FD100072FD0000000000007 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
-
-/* Begin PBXContainerItemProxy section */
-		A1000000000000000000000A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 6F0996B32EE9CEA800CBDF38 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 6F0996BA2EE9CEA800CBDF38;
-			remoteInfo = Brewery;
-		};
-/* End PBXContainerItemProxy section */
 
 /* Begin XCBuildConfiguration section */
 		6F0996C42EE9CEA900CBDF38 /* Debug */ = {
@@ -359,7 +356,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.0.5;
+				MARKETING_VERSION = 1.0.6;
 				PRODUCT_BUNDLE_IDENTIFIER = yyytir777.Brewery;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -397,7 +394,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.0.5;
+				MARKETING_VERSION = 1.0.6;
 				PRODUCT_BUNDLE_IDENTIFIER = yyytir777.Brewery;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -416,31 +413,31 @@
 			};
 			name = Release;
 		};
-		A1000000000000000000000B /* Debug */ = {
+		6FD100092FD0000000000009 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				PRODUCT_BUNDLE_IDENTIFIER = yyytir777.BreweryTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
 				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Brewery.app/Contents/MacOS/Brewery";
 			};
 			name = Debug;
 		};
-		A1000000000000000000000C /* Release */ = {
+		6FD1000A2FD000000000000A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				PRODUCT_BUNDLE_IDENTIFIER = yyytir777.BreweryTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
 				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Brewery.app/Contents/MacOS/Brewery";
 			};
@@ -467,16 +464,17 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A10000000000000000000007 /* Build configuration list for PBXNativeTarget "BreweryTests" */ = {
+		6FD1000B2FD000000000000B /* Build configuration list for PBXNativeTarget "BreweryTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A1000000000000000000000B /* Debug */,
-				A1000000000000000000000C /* Release */,
+				6FD100092FD0000000000009 /* Debug */,
+				6FD1000A2FD000000000000A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
 	};
 	rootObject = 6F0996B32EE9CEA800CBDF38 /* Project object */;
 }

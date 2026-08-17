@@ -288,6 +288,18 @@ class BreweryViewModel: ObservableObject {
         return (result.formulae.first, result.casks.first)
     }
 
+    func resolveFormulaForDependencyGraph(name: String) async throws -> BreweryFormula {
+        if let installed = getFormula(for: name) {
+            return installed
+        }
+
+        let info = await fetchPackageInfo(name: name, isCask: false)
+        guard let formula = info.formula else {
+            throw DependencyGraphLoadError.formulaUnavailable(name)
+        }
+        return formula
+    }
+
     func recordFailure(_ result: BreweryCommandResult) {
         guard !result.succeeded else { return }
         lastCommandError = result

@@ -122,3 +122,9 @@ iOSInjectionProject/
 
 .env
 .worktrees/
+
+# Local AI release runbook and generated release artifacts
+RELEASE_AI.md
+RELEASE_IMPLEMENTATION_PLAN.md
+.release/
+.superpowers/
