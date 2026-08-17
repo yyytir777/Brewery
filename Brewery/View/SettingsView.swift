@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @AppStorage(BreweryTelemetry.isEnabledKey) private var isTelemetryEnabled = true
     @State private var logSize: String = ""
     @State private var showClearConfirm = false
 
@@ -20,14 +19,6 @@ struct SettingsView: View {
                     }
                     .tint(.red)
                 }
-            }
-
-            Section("Privacy") {
-                Toggle("Send anonymous usage statistics", isOn: $isTelemetryEnabled)
-
-                Text("Sends an anonymous event when Brewery launches, so I can see how many people use it. It carries no personal data and nothing about your packages — see the Privacy section of the README for the full list. Takes effect on the next launch.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
