@@ -1,0 +1,4 @@
+interface:
+  display_name: "Brewery Release"
+  short_description: "Build and publish notarized Brewery DMG releases"
+  default_prompt: "Use $brewery-release to prepare and publish the next Brewery macOS release safely."
