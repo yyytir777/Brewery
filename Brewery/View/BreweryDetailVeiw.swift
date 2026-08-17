@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import AppKit
 
 struct BreweryDetailView: View {
     // BreweryViewModel 안에 있는 @Published 객체의 변경을 감지
@@ -105,23 +104,15 @@ struct BreweryDetailView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Dependencies")
                         .font(.headline)
-                    GroupBox {
-                        FlowLayout(spacing: 6) {
-                            ForEach(formula.dependencies, id: \.self) { dep in
-                                Button(dep) {
-                                    onNavigate(dep)
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                                .onHover { hovering in
-                                    hovering ? NSCursor.pointingHand.push() : NSCursor.pop()
-                                }
-                            }
-                        }
-                        .padding(4)
-                    }
+                    DependencyGraphView(
+                        root: formula,
+                        loader: { name in
+                            try await vm.resolveFormulaForDependencyGraph(name: name)
+                        },
+                        onNavigate: onNavigate
+                    )
+                    .id(formula.name)
                 }
-                
             }
                 
             HStack {
@@ -278,48 +269,6 @@ struct BreweryDetailView: View {
             }
         } message: {
             Text(zapOnUninstall ? "This will also delete all associated data." : "This action cannot be undone.")
-        }
-    }
-}
-
-// 태그처럼 가로로 흘러내리는 레이아웃
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let maxWidth = proposal.width ?? .infinity
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var lineHeight: CGFloat = 0
-
-        for view in subviews {
-            let size = view.sizeThatFits(.unspecified)
-            if x + size.width > maxWidth && x > 0 {
-                y += lineHeight + spacing
-                x = 0
-                lineHeight = 0
-            }
-            x += size.width + spacing
-            lineHeight = max(lineHeight, size.height)
-        }
-        return CGSize(width: maxWidth, height: y + lineHeight)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var x = bounds.minX
-        var y = bounds.minY
-        var lineHeight: CGFloat = 0
-
-        for view in subviews {
-            let size = view.sizeThatFits(.unspecified)
-            if x + size.width > bounds.maxX && x > bounds.minX {
-                y += lineHeight + spacing
-                x = bounds.minX
-                lineHeight = 0
-            }
-            view.place(at: CGPoint(x: x, y: y), proposal: .unspecified)
-            x += size.width + spacing
-            lineHeight = max(lineHeight, size.height)
         }
     }
 }
