@@ -52,6 +52,14 @@ release, and preserve the signing key for future updates.
 
 ## Changelog
 
+### 1.0.6
+- Added package search with popularity rankings, filters, and an offline catalog.
+- Added an interactive Formula dependency graph and improved package details.
+- Added an activity queue with command output, waiting-task cancellation, and safer package operations.
+- Added searchable Settings for appearance, language, startup behavior, notifications, update checks, storage, and diagnostics.
+- Added in-app Brewery updates with verified downloads, installation, and relaunch after package operations finish.
+- Improved installed-package filtering, selective upgrades, sidebar hover feedback, and keyboard navigation.
+
 ### 1.0.5
 - Added confirmation dialog before uninstalling Formula and Cask packages
 - Added Settings window (Cmd+,) with log file management (view size, open, clear)
