@@ -128,3 +128,7 @@ RELEASE_AI.md
 RELEASE_IMPLEMENTATION_PLAN.md
 .release/
 .superpowers/
+
+# Python tooling caches
+__pycache__/
+*.py[cod]
