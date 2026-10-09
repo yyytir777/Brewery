@@ -26,6 +26,13 @@ version_gt() {
   return 1
 }
 
+# The project can already name the next unreleased version. Published tags are
+# checked separately and must always be strictly older than the target.
+project_version_allows_release() {
+  validate_version "${1:-}" && validate_version "${2:-}" || return 1
+  [[ "$1" == "$2" ]] || version_gt "$1" "$2"
+}
+
 read_single_build_setting() {
   local file=${1:-}
   local key=${2:-}

@@ -62,6 +62,10 @@ assert_file_count() {
 }
 
 test_version_helpers() {
+  assert_status "allows a preselected unpublished project version" 0 project_version_allows_release 1.0.6 1.0.6
+  assert_status "allows advancing the project version" 0 project_version_allows_release 1.0.7 1.0.6
+  assert_status "rejects downgrading the project version" 1 project_version_allows_release 1.0.5 1.0.6
+  assert_status "rejects invalid equal project versions" 1 project_version_allows_release bad bad
   assert_status "accepts a three-part numeric version" 0 validate_version 1.0.7
   assert_status "rejects a v-prefixed version" 1 validate_version v1.0.7
   assert_status "rejects a two-part version" 1 validate_version 1.0

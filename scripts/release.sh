@@ -103,7 +103,7 @@ prepare_release() {
 
   local current_version build_number base_tag source_head original_project_sha256 original_readme_sha256
   current_version=$(read_single_build_setting "$PROJECT_FILE" MARKETING_VERSION) || fail "Could not read a consistent MARKETING_VERSION" || return 1
-  version_gt "$version" "$current_version" || fail "Version $version must be newer than project version $current_version" || return 1
+  project_version_allows_release "$version" "$current_version" || fail "Version $version must not be older than project version $current_version" || return 1
   build_number=$(next_build_number "$PROJECT_FILE") || fail "Could not calculate the next build number" || return 1
   base_tag=$(latest_version_tag "$REPOSITORY_ROOT") || return 1
   source_head=$(git -C "$REPOSITORY_ROOT" rev-parse HEAD) || return 1
