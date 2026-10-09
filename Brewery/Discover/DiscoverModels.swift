@@ -1,6 +1,6 @@
 import Foundation
 
-struct CatalogPackage: Codable, Identifiable, Hashable, Sendable {
+nonisolated struct CatalogPackage: Codable, Identifiable, Hashable, Sendable {
     let id: PackageID
     let name: String
     let kind: PackageKind
@@ -9,29 +9,29 @@ struct CatalogPackage: Codable, Identifiable, Hashable, Sendable {
     let latestVersion: String?
 }
 
-struct CatalogSnapshot: Codable, Equatable, Sendable {
+nonisolated struct CatalogSnapshot: Codable, Equatable, Sendable {
     let schemaVersion: Int
     let generatedAt: Date
     let packages: [CatalogPackage]
 }
 
-enum RankingWindow: String, Codable, CaseIterable, Sendable {
+nonisolated enum RankingWindow: String, Codable, CaseIterable, Sendable {
     case days30 = "30d", days90 = "90d", days365 = "365d"
     var title: String {
         switch self { case .days30: "30 days"; case .days90: "90 days"; case .days365: "365 days" }
     }
 }
 
-struct PackageRanking: Codable, Equatable, Sendable { let packageID: PackageID; let installs: Int; let rank: Int }
-struct RankingSection: Codable, Equatable, Sendable { let fetchedAt: Date; let entries: [PackageRanking] }
-struct RankingSnapshot: Codable, Equatable, Sendable { let schemaVersion: Int; let window: RankingWindow; let formula: RankingSection?; let cask: RankingSection? }
+nonisolated struct PackageRanking: Codable, Equatable, Sendable { let packageID: PackageID; let installs: Int; let rank: Int }
+nonisolated struct RankingSection: Codable, Equatable, Sendable { let fetchedAt: Date; let entries: [PackageRanking] }
+nonisolated struct RankingSnapshot: Codable, Equatable, Sendable { let schemaVersion: Int; let window: RankingWindow; let formula: RankingSection?; let cask: RankingSection? }
 
-enum PackageKindFilter: String, CaseIterable, Identifiable, Sendable {
+nonisolated enum PackageKindFilter: String, CaseIterable, Identifiable, Sendable {
     case all = "All", formula = "Formula", cask = "Cask"
     var id: Self { self }
 }
 
-struct DiscoverRow: Identifiable, Equatable, Sendable {
+nonisolated struct DiscoverRow: Identifiable, Equatable, Sendable {
     let package: CatalogPackage
     let rank: Int?
     let installs: Int?
@@ -39,7 +39,7 @@ struct DiscoverRow: Identifiable, Equatable, Sendable {
     var id: PackageID { package.id }
 }
 
-enum HomebrewPayloadDecoder {
+nonisolated enum HomebrewPayloadDecoder {
     private struct Formula: Decodable { struct Versions: Decodable { let stable: String? }; let name: String; let desc: String?; let homepage: String?; let versions: Versions }
     private struct Cask: Decodable { let token: String; let desc: String?; let homepage: String?; let version: String? }
     private struct FormulaAnalytics: Decodable { struct Item: Decodable { let number: Int; let formula: String; let count: String }; let items: [Item] }
@@ -56,7 +56,8 @@ enum HomebrewPayloadDecoder {
     }
     static func decodeCaskRankings(_ data: Data) throws -> [PackageRanking] {
         let items = try JSONDecoder().decode(CaskAnalytics.self, from: data).formulae.values.flatMap { $0 }
-        let sorted = try items.map { ($0.cask, try parseCount($0.count)) }.sorted { $0.1 == $1.1 ? $0.0 < $1.0 : $0.1 > $1.1 }
+        let counted: [(String, Int)] = try items.map { ($0.cask, try parseCount($0.count)) }
+        let sorted = counted.sorted { $0.1 == $1.1 ? $0.0 < $1.0 : $0.1 > $1.1 }
         return sorted.enumerated().map { PackageRanking(packageID: .cask($0.element.0), installs: $0.element.1, rank: $0.offset + 1) }
     }
     private static func parseCount(_ value: String) throws -> Int {

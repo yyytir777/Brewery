@@ -1,8 +1,10 @@
 import SwiftUI
 
 struct DependencyGraphView: View {
+    @Environment(\.breweryReduceMotion) private var reduceMotion
     @StateObject private var store: DependencyGraphStore
 
+    private let root: BreweryFormula
     private let onNavigate: (String) -> Void
     private let treeLayout = DependencyTreeLayout()
 
@@ -18,6 +20,7 @@ struct DependencyGraphView: View {
         onNavigate: @escaping (String) -> Void
     ) {
         _store = StateObject(wrappedValue: DependencyGraphStore(root: root, loader: loader))
+        self.root = root
         self.onNavigate = onNavigate
     }
 
@@ -36,7 +39,11 @@ struct DependencyGraphView: View {
                     graphContent(nodes: nodes, layout: layout, viewportSize: proxy.size)
                         .scaleEffect(effectiveScale, anchor: .topLeading)
                         .offset(effectiveOffset)
-
+                }
+                // Keep graph content from expanding the viewport and moving its controls offscreen.
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+                .clipped()
+                .overlay(alignment: .top) {
                     if let limitMessage = store.limitMessage {
                         Text(limitMessage)
                             .font(.caption)
@@ -48,21 +55,27 @@ struct DependencyGraphView: View {
                             .padding(.top, 8)
                             .allowsHitTesting(false)
                     }
-
+                }
+                .overlay(alignment: .bottomTrailing) {
                     zoomControls(layout: layout, viewportSize: proxy.size)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                         .padding(8)
                 }
-                .clipped()
                 .simultaneousGesture(magnificationGesture)
                 .onAppear {
+                    if store.updateRoot(root) { hasPositionedRoot = false }
                     guard !hasPositionedRoot else { return }
-                    resetViewport(layout: layout, viewportSize: proxy.size)
+                    resetViewport(layout: graphLayout(for: store.visibleNodes), viewportSize: proxy.size)
+                    hasPositionedRoot = true
+                }
+                .onChange(of: DependencyGraphRootMetadata(root)) { _ in
+                    guard store.updateRoot(root) else { return }
+                    resetViewport(layout: graphLayout(for: store.visibleNodes), viewportSize: proxy.size)
                     hasPositionedRoot = true
                 }
             }
         }
         .frame(height: 320)
+        .onDisappear { store.cancelPendingLoads() }
     }
 
     private func graphContent(
@@ -98,7 +111,7 @@ struct DependencyGraphView: View {
                         state: store.state(for: node.id),
                         isSelected: store.selectedNodeID == node.id,
                         onSelect: { store.select(node.id) },
-                        onNavigate: { onNavigate(node.name) },
+                        onNavigate: { onNavigate(node.id.name) },
                         onToggleExpansion: {
                             Task {
                                 let revealedIDs = await store.toggleExpansion(node.id)
@@ -132,7 +145,7 @@ struct DependencyGraphView: View {
     ) -> some View {
         HStack(spacing: 0) {
             Button {
-                withAnimation(.easeOut(duration: 0.15)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                     scale = DependencyViewport.clampedScale(scale - 0.2)
                 }
             } label: {
@@ -146,7 +159,7 @@ struct DependencyGraphView: View {
                 .frame(height: 16)
 
             Button {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                     resetViewport(layout: layout, viewportSize: viewportSize)
                 }
             } label: {
@@ -160,7 +173,7 @@ struct DependencyGraphView: View {
                 .frame(height: 16)
 
             Button {
-                withAnimation(.easeOut(duration: 0.15)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                     scale = DependencyViewport.clampedScale(scale + 0.2)
                 }
             } label: {
@@ -230,7 +243,7 @@ struct DependencyGraphView: View {
         guard let firstFrame = frames.first else { return }
         let revealRect = frames.dropFirst().reduce(firstFrame) { $0.union($1) }
 
-        withAnimation(.easeOut(duration: 0.25)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
             offset = DependencyViewport.offsetToReveal(
                 contentRect: revealRect,
                 viewportSize: viewportSize,

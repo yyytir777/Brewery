@@ -1,5 +1,17 @@
 import Foundation
 
+struct DependencyGraphRootMetadata: Equatable {
+    let fullName: String
+    let name: String
+    let dependencies: [String]
+
+    init(_ formula: BreweryFormula) {
+        fullName = formula.full_name
+        name = formula.name
+        dependencies = formula.dependencies
+    }
+}
+
 struct DependencyNodeID: Hashable {
     let path: [String]
 

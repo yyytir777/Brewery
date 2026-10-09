@@ -153,6 +153,9 @@ test_prepare_preflight_helpers() {
   local fixture_dir
   fixture_dir=$(mktemp -d "${TMPDIR:-/tmp}/brewery-release-git-test.XXXXXX") || return 1
 
+  mkdir -p -- "$fixture_dir/Configuration"
+  plutil -create xml1 "$fixture_dir/Configuration/Brewery-Info.plist"
+  plutil -insert SUPublicEDKey -string fixture-public-key "$fixture_dir/Configuration/Brewery-Info.plist"
   command git -C "$fixture_dir" init -q -b main
   command git -C "$fixture_dir" config user.email release-test@example.com
   command git -C "$fixture_dir" config user.name "Release Test"
@@ -276,6 +279,10 @@ case "$tool" in
         command plutil -insert assets.0.name -string "$(cat "${state}.asset")" "$plist"
         command plutil -insert assets.0.size -integer "$(cat "${state}.size")" "$plist"
         command plutil -insert assets.0.digest -string "$(cat "${state}.digest")" "$plist"
+        command plutil -insert assets.1 -dictionary "$plist"
+        command plutil -insert assets.1.name -string appcast.xml "$plist"
+        command plutil -insert assets.1.size -integer "$(cat "${state}.feed-size")" "$plist"
+        command plutil -insert assets.1.digest -string "$(cat "${state}.feed-digest")" "$plist"
         command plutil -convert json -o - "$plist"
         rm -f -- "$plist"
         return 0
@@ -305,6 +312,7 @@ case "$tool" in
       state=${FAKE_GH_RELEASE_STATE:?missing fake release state}
       tag=${3:?missing tag}
       dmg=${4:?missing dmg}
+      feed=${5:?missing appcast}
       args=("$@")
       title_index=${args[(i)--title]}
       notes_index=${args[(i)--notes-file]}
@@ -316,6 +324,8 @@ case "$tool" in
       print -r -- "${dmg:t}" > "${state}.asset"
       stat -f %z "$dmg" > "${state}.size"
       print -r -- "sha256:$(shasum -a 256 "$dmg" | awk \'{ print $1 }\')" > "${state}.digest"
+      stat -f %z "$feed" > "${state}.feed-size"
+      print -r -- "sha256:$(shasum -a 256 "$feed" | awk \'{ print $1 }\')" > "${state}.feed-digest"
       : > "$state"
       return 0
     fi
@@ -323,19 +333,46 @@ case "$tool" in
     ;;
   xcodebuild)
     args=("$@")
-    if [[ " $* " == *" archive "* ]]; then
+    if [[ " $* " == *" archive "* || " $* " == *" -resolvePackageDependencies "* ]]; then
       index=${args[(i)-archivePath]}
-      archive_path=${args[$(( index + 1 ))]}
-      mkdir -p -- "$archive_path"
+      if (( index <= ${#args} )); then
+        archive_path=${args[$(( index + 1 ))]}
+        mkdir -p -- "$archive_path"
+      fi
+      index=${args[(i)-derivedDataPath]}
+      derived_path=${args[$(( index + 1 ))]}
+      sparkle_bin="$derived_path/SourcePackages/artifacts/sparkle/Sparkle/bin"
+      mkdir -p -- "$sparkle_bin"
+      for sparkle_tool in generate_keys generate_appcast sign_update; do
+        cp "$0" "$sparkle_bin/$sparkle_tool"
+      done
       return 0
     fi
     if [[ " $* " == *" -exportArchive "* ]]; then
       index=${args[(i)-exportPath]}
       export_path=${args[$(( index + 1 ))]}
-      mkdir -p -- "$export_path/Brewery.app"
+      mkdir -p -- "$export_path/Brewery.app/Contents"
+      command plutil -create xml1 "$export_path/Brewery.app/Contents/Info.plist"
+      command plutil -insert SUPublicEDKey -string fixture-public-key "$export_path/Brewery.app/Contents/Info.plist"
       return 0
     fi
     return 0
+    ;;
+  sign_update)
+    return "${FAKE_SPARKLE_VERIFY_FAIL:-0}"
+    ;;
+  generate_keys)
+    [[ "${FAKE_SPARKLE_MISSING_KEY:-0}" == 0 ]] || return 1
+    print -r -- "${FAKE_SPARKLE_PUBLIC_KEY:-fixture-public-key}"
+    ;;
+  generate_appcast)
+    [[ "${FAKE_SPARKLE_GENERATION_FAIL:-0}" == 0 ]] || return 1
+    args=("$@")
+    index=${args[(i)--download-url-prefix]}
+    prefix=${args[$(( index + 1 ))]}
+    folder=${args[-1]}
+    signature=$(printf "%086d==" 0)
+    print -r -- "<rss xmlns:sparkle=\\\"http://www.andymatuschak.org/xml-namespaces/sparkle\\\"><channel><item><sparkle:version>2</sparkle:version><sparkle:shortVersionString>1.0.7</sparkle:shortVersionString><enclosure url=\\\"${prefix}Brewery-1.0.7.dmg\\\" length=\\\"$(stat -f %z "$folder/Brewery-1.0.7.dmg")\\\" sparkle:edSignature=\\\"$signature\\\" /></item></channel></rss>" > "$folder/appcast.xml"
     ;;
   create-dmg)
     args=("$@")
@@ -470,10 +507,13 @@ make_release_fixture() {
   print -r -- $'## What Implemented\n- Added safe release automation\n- Added notarization verification' > "$fixture_dir/.release/$version/release-notes.md"
   print -r -- $'.release/\nbin/\nfake-mount/\nRELEASE_AI.md\nRELEASE_IMPLEMENTATION_PLAN.md' > "$fixture_dir/.gitignore"
 
+  mkdir -p -- "$fixture_dir/Configuration"
+  plutil -create xml1 "$fixture_dir/Configuration/Brewery-Info.plist"
+  plutil -insert SUPublicEDKey -string fixture-public-key "$fixture_dir/Configuration/Brewery-Info.plist"
   command git -C "$fixture_dir" init -q -b main
   command git -C "$fixture_dir" config user.email release-test@example.com
   command git -C "$fixture_dir" config user.name "Release Test"
-  command git -C "$fixture_dir" add .gitignore Brewery.xcodeproj/project.pbxproj README.md scripts
+  command git -C "$fixture_dir" add .gitignore Brewery.xcodeproj/project.pbxproj README.md scripts Configuration
   command git -C "$fixture_dir" commit -q -m 'initial'
   command git -C "$fixture_dir" tag v1.0.5
   command git -C "$fixture_dir" remote add origin https://github.com/yyytir777/Brewery.git
@@ -504,6 +544,8 @@ test_prepare_artifact_workflow() {
   assert_file_count "prepare updates both project build numbers" 2 "CURRENT_PROJECT_VERSION = 2;" "$fixture_dir/Brewery.xcodeproj/project.pbxproj"
   assert_file_count "prepare adds the release changelog once" 1 "### 1.0.7" "$fixture_dir/README.md"
   assert_status "prepare creates the versioned DMG" 0 test -f "$fixture_dir/.release/1.0.7/Brewery-1.0.7.dmg"
+  assert_status "prepare creates a signed appcast" 0 test -f "$fixture_dir/.release/1.0.7/appcast.xml"
+  assert_file_count "prepare signs with dedicated account" 1 "generate_appcast --maximum-deltas 0 --embed-release-notes --account brewery-sparkle" "$command_log"
   assert_status "prepare creates a release manifest" 0 test -f "$fixture_dir/.release/1.0.7/release.manifest"
   assert_eq "prepare records accepted notarization" "Accepted" "$(manifest_read "$fixture_dir/.release/1.0.7/release.manifest" notary_status 2>/dev/null)"
   assert_eq "prepare does not create a release commit" "initial" "$(command git -C "$fixture_dir" log -1 --pretty=%s)"
@@ -637,6 +679,12 @@ test_publish_cancellation_and_tamper_detection() {
   assert_eq "cancel creates no target tag" "" "$(command git -C "$fixture_dir" tag --list v1.0.7)"
   assert_status "cancel creates no GitHub Release" 1 test -f "$release_state"
 
+  cp "$fixture_dir/.release/1.0.7/appcast.xml" "$fixture_dir/.release/original-appcast.xml"
+  print -rn -- tampered >> "$fixture_dir/.release/1.0.7/appcast.xml"
+  PATH="$fixture_dir/bin:$PATH" FAKE_COMMAND_LOG="$command_log" FAKE_MOUNT_POINT="$fixture_dir/fake-mount" FAKE_GH_RELEASE_STATE="$release_state" \
+    assert_status "changed appcast is rejected before confirmation" 1 \
+      run_publish_with_input "PUBLISH v1.0.7" "$fixture_dir/scripts/release.sh" 1.0.7
+  cp "$fixture_dir/.release/original-appcast.xml" "$fixture_dir/.release/1.0.7/appcast.xml"
   print -rn -- tampered >> "$fixture_dir/.release/1.0.7/Brewery-1.0.7.dmg"
   PATH="$fixture_dir/bin:$PATH" \
     FAKE_COMMAND_LOG="$command_log" \
@@ -774,6 +822,55 @@ test_publish_rejects_commit_hook_tamper_before_push() {
   rm -rf -- "$fixture_dir"
 }
 
+test_sparkle_failures_stop_prepare() {
+  local scenario fixture_dir command_log
+  for scenario in missing-key wrong-key generation signature; do
+    fixture_dir=$(mktemp -d "${TMPDIR:-/tmp}/brewery-release-sparkle-test.XXXXXX") || return 1
+    make_release_fixture "$fixture_dir" 1.0.7
+    command_log="$fixture_dir/.release/commands.log"
+    local -a failure_environment
+    case "$scenario" in
+      missing-key) failure_environment=(FAKE_SPARKLE_MISSING_KEY=1) ;;
+      wrong-key) failure_environment=(FAKE_SPARKLE_PUBLIC_KEY=wrong-key) ;;
+      generation) failure_environment=(FAKE_SPARKLE_GENERATION_FAIL=1) ;;
+      signature) failure_environment=(FAKE_SPARKLE_VERIFY_FAIL=1) ;;
+    esac
+    assert_status "Sparkle $scenario failure blocks prepare" 1 \
+      env PATH="$fixture_dir/bin:$PATH" FAKE_COMMAND_LOG="$command_log" \
+      FAKE_MOUNT_POINT="$fixture_dir/fake-mount" "${failure_environment[@]}" \
+      zsh "$fixture_dir/scripts/release.sh" prepare 1.0.7
+    assert_status "Sparkle $scenario failure creates no manifest" 1 test -f "$fixture_dir/.release/1.0.7/release.manifest"
+    assert_file_count "Sparkle $scenario failure preserves project versions" 2 "MARKETING_VERSION = 1.0.6;" "$fixture_dir/Brewery.xcodeproj/project.pbxproj"
+    if [[ "$scenario" == *key ]]; then
+      assert_file_count "Sparkle $scenario stops before archive" 0 "xcodebuild archive" "$command_log"
+    fi
+    rm -rf -- "$fixture_dir"
+  done
+}
+
+test_sparkle_feed_and_asset_validation() {
+  local fixture_dir
+  fixture_dir=$(mktemp -d "${TMPDIR:-/tmp}/brewery-release-feed-test.XXXXXX") || return 1
+  local dmg="$fixture_dir/Brewery-1.0.7.dmg" feed="$fixture_dir/appcast.xml" readback="$fixture_dir/assets.json"
+  print -rn -- fixture > "$dmg"
+  local signature=$(printf '%086d==' 0)
+  print -r -- "<rss xmlns:sparkle=\"http://www.andymatuschak.org/xml-namespaces/sparkle\"><channel><item><sparkle:version>2</sparkle:version><sparkle:shortVersionString>1.0.7</sparkle:shortVersionString><enclosure url=\"https://github.com/yyytir777/Brewery/releases/download/v1.0.7/Brewery-1.0.7.dmg\" length=\"7\" sparkle:edSignature=\"$signature\" /></item></channel></rss>" > "$feed"
+  assert_status "appcast metadata matches versioned artifact" 0 assert_sparkle_appcast "$feed" "$dmg" 1.0.7 2 yyytir777/Brewery
+  assert_status "appcast rejects wrong version" 1 assert_sparkle_appcast "$feed" "$dmg" 1.0.8 2 yyytir777/Brewery
+  assert_status "appcast rejects wrong build" 1 assert_sparkle_appcast "$feed" "$dmg" 1.0.7 3 yyytir777/Brewery
+  print -rn -- extra >> "$dmg"
+  assert_status "appcast rejects changed archive size" 1 assert_sparkle_appcast "$feed" "$dmg" 1.0.7 2 yyytir777/Brewery
+  print -r -- '{"assets":[{"name":"appcast.xml","size":10,"digest":"sha256:feed"},{"name":"Brewery-1.0.7.dmg","size":7,"digest":"sha256:dmg"}]}' > "$readback"
+  assert_status "release readback accepts both assets in either order" 0 verify_release_assets "$readback" Brewery-1.0.7.dmg 7 dmg 10 feed
+  assert_status "release readback rejects wrong appcast digest" 1 verify_release_assets "$readback" Brewery-1.0.7.dmg 7 dmg 10 wrong
+  assert_status "release readback rejects wrong appcast size" 1 verify_release_assets "$readback" Brewery-1.0.7.dmg 7 dmg 11 feed
+  plutil -remove assets.0 "$readback"
+  assert_status "release readback rejects missing appcast" 1 verify_release_assets "$readback" Brewery-1.0.7.dmg 7 dmg 10 feed
+  rm -rf -- "$fixture_dir"
+}
+
+test_sparkle_feed_and_asset_validation
+test_sparkle_failures_stop_prepare
 test_version_helpers
 test_project_and_readme_helpers
 test_notes_checksum_and_manifest_helpers

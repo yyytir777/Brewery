@@ -14,6 +14,7 @@ readonly EXPECTED_ORIGIN=https://github.com/yyytir777/Brewery.git
 readonly GITHUB_REPOSITORY=yyytir777/Brewery
 readonly TEAM_ID=Y65C87UHRQ
 readonly NOTARY_PROFILE=brewery-notary
+readonly SPARKLE_ACCOUNT=brewery-sparkle
 
 fail() {
   print -u2 -r -- "ERROR: $1"
@@ -61,6 +62,7 @@ prepare_release() {
   local export_options="$artifact_dir/ExportOptions.plist"
   local dmg_source="$artifact_dir/dmg-source"
   local dmg_path="$artifact_dir/Brewery-$version.dmg"
+  local appcast_path="$artifact_dir/appcast.xml"
   local submit_json="$artifact_dir/notary-submit.json"
   local wait_json="$artifact_dir/notary-wait.json"
   local notary_log="$artifact_dir/notary-log.json"
@@ -72,7 +74,7 @@ prepare_release() {
   local prepared_project="$artifact_dir/prepared-project.pbxproj"
   local prepared_readme="$artifact_dir/prepared-README.md"
 
-  require_commands git gh security xcodebuild xcrun codesign spctl hdiutil create-dmg plutil shasum perl awk grep sed ditto stat find mktemp cp tee date uname || return 1
+  require_commands git gh security xcodebuild xcrun codesign spctl hdiutil create-dmg plutil shasum perl awk grep sed ditto stat find mktemp cp tee date uname xmllint || return 1
   [[ "$(uname -s)" == Darwin ]] || fail "macOS is required for Developer ID release preparation" || return 1
   assert_git_repository "$REPOSITORY_ROOT" "$EXPECTED_BRANCH" "$EXPECTED_ORIGIN" || fail "Release must run from clean main with origin $EXPECTED_ORIGIN" || return 1
   assert_clean_worktree "$REPOSITORY_ROOT" || fail "Working tree must be clean before prepare" || return 1
@@ -117,6 +119,13 @@ prepare_release() {
   update_project_versions "$prepared_project" "$version" "$build_number" || fail "Could not pre-render project versions" || return 1
   update_readme_changelog "$prepared_readme" "$notes_file" "$version" || fail "Could not pre-render README Changelog" || return 1
 
+  # Resolve tooling and validate the existing signing key before the expensive archive.
+  xcodebuild -resolvePackageDependencies -project "$PROJECT_PATH" -scheme Brewery \
+    -derivedDataPath "$artifact_dir/DerivedData" 2>&1 | tee "$artifact_dir/resolve-packages.log" || return 1
+  local sparkle_bin="$artifact_dir/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin"
+  [[ -x "$sparkle_bin/generate_keys" && -x "$sparkle_bin/generate_appcast" && -x "$sparkle_bin/sign_update" ]] || fail "Sparkle release tools missing from $sparkle_bin" || return 1
+  assert_sparkle_public_key "$sparkle_bin/generate_keys" "$REPOSITORY_ROOT/Configuration/Brewery-Info.plist" "$SPARKLE_ACCOUNT" || fail "Sparkle Keychain signing key is missing or differs from the source public key" || return 1
+
   print -r -- "Archiving Brewery $version (build $build_number)..."
   xcodebuild archive \
     -project "$PROJECT_PATH" \
@@ -140,6 +149,7 @@ prepare_release() {
   local exported_app="$export_dir/Brewery.app"
   [[ -d "$exported_app" ]] || fail "Export did not produce Brewery.app" || return 1
   codesign --verify --deep --strict --verbose=2 "$exported_app" || return 1
+  assert_sparkle_public_key "$sparkle_bin/generate_keys" "$exported_app/Contents/Info.plist" "$SPARKLE_ACCOUNT" || fail "Sparkle Keychain signing key is missing or differs from the app public key" || return 1
 
   mkdir -p -- "$dmg_source"
   ditto "$exported_app" "$dmg_source/Brewery.app" || return 1
@@ -216,7 +226,23 @@ prepare_release() {
   }
   spctl --assess --type open --context context:primary-signature --verbose=4 "$dmg_path" || return 1
 
+  # Sign only the final stapled bytes. A fresh folder prevents stale releases/deltas.
+  local feed_source="$artifact_dir/appcast-source"
+  mkdir -p -- "$feed_source" || return 1
+  cp -- "$dmg_path" "$feed_source/Brewery-$version.dmg" || return 1
+  cp -- "$notes_file" "$feed_source/Brewery-$version.md" || return 1
+  "$sparkle_bin/generate_appcast" --maximum-deltas 0 --embed-release-notes --account "$SPARKLE_ACCOUNT" \
+    --download-url-prefix "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/" \
+    "$feed_source" 2>&1 | tee "$artifact_dir/appcast.log" || return 1
+  cp -- "$feed_source/appcast.xml" "$appcast_path" || return 1
+  assert_sparkle_appcast "$appcast_path" "$dmg_path" "$version" "$build_number" "$GITHUB_REPOSITORY" || fail "Generated Sparkle appcast does not match the prepared release" || return 1
+
+  local update_signature
+  update_signature=$(xmllint --xpath "string(/rss/channel/item/enclosure/@*[local-name()='edSignature'])" "$appcast_path") || return 1
+  "$sparkle_bin/sign_update" --verify --account "$SPARKLE_ACCOUNT" "$dmg_path" "$update_signature" || fail "Sparkle signature does not verify the final DMG" || return 1
+
   print -r -l -- \
+    "Sparkle signed appcast: passed" \
     "codesign app: passed" \
     "codesign dmg: passed" \
     "notarytool: Accepted ($notary_id)" \
@@ -258,6 +284,8 @@ prepare_release() {
       notes_sha256 "$notes_sha256" \
       dmg_sha256 "$dmg_sha256" \
       dmg_size "$dmg_size" \
+      appcast_sha256 "$(sha256_file "$appcast_path")" \
+      appcast_size "$(stat -f %z "$appcast_path")" \
       notary_status "$notary_status" \
       notary_id "$notary_id" \
       submit_sha256 "$submit_sha256" \
@@ -283,6 +311,8 @@ prepare_release() {
   print -r -- "DMG: $dmg_path"
   print -r -- "Size: $dmg_size bytes"
   print -r -- "SHA-256: $dmg_sha256"
+  print -r -- "Appcast: $appcast_path ($(stat -f %z "$appcast_path") bytes)"
+  print -r -- "Appcast SHA-256: $(sha256_file "$appcast_path")"
   print -r -- "Verification:"
   sed 's/^/  /' "$verification_log"
   print -r -- ""
@@ -293,7 +323,7 @@ prepare_release() {
   print -r -- "  git commit -m 'chore: release $tag'"
   print -r -- "  git tag -a '$tag' -m 'Release $tag'"
   print -r -- "  git push --atomic origin main 'refs/tags/$tag'"
-  print -r -- "  gh release create '$tag' 'Brewery-$version.dmg' --title 'Release : $tag' --notes-file release-notes.md --verify-tag"
+  print -r -- "  gh release create '$tag' 'Brewery-$version.dmg' 'appcast.xml' --title 'Release : $tag' --notes-file release-notes.md --verify-tag"
   print -r -- "Prepared only; nothing was committed, tagged, pushed, or published."
 }
 
@@ -338,6 +368,8 @@ validate_prepared_local_state() {
   [[ "$(sha256_file "$notes_file")" == "$manifest_notes_hash" ]] || fail "Release notes changed after prepare" || return 1
   [[ "$(sha256_file "$dmg_path")" == "$manifest_dmg_hash" ]] || fail "DMG changed after prepare" || return 1
   [[ "$(stat -f %z "$dmg_path")" == "$manifest_dmg_size" ]] || fail "DMG size changed after prepare" || return 1
+  [[ "$(sha256_file "$artifact_dir/appcast.xml")" == "$(manifest_read "$manifest_file" appcast_sha256)" ]] || fail "Appcast changed after prepare" || return 1
+  [[ "$(stat -f %z "$artifact_dir/appcast.xml")" == "$(manifest_read "$manifest_file" appcast_size)" ]] || fail "Appcast size changed after prepare" || return 1
   [[ "$(sha256_file "$artifact_dir/notary-submit.json")" == "$manifest_submit_hash" ]] || fail "Notary submission evidence changed after prepare" || return 1
   [[ "$(sha256_file "$artifact_dir/notary-wait.json")" == "$manifest_wait_hash" ]] || fail "Notary wait evidence changed after prepare" || return 1
   [[ "$(sha256_file "$artifact_dir/notary-log.json")" == "$manifest_notary_log_hash" ]] || fail "Notary log changed after prepare" || return 1
@@ -351,6 +383,7 @@ publish_release() {
   local artifact_dir="$REPOSITORY_ROOT/.release/$version"
   local notes_file="$artifact_dir/release-notes.md"
   local dmg_path="$artifact_dir/Brewery-$version.dmg"
+  local appcast_path="$artifact_dir/appcast.xml"
   local manifest_file="$artifact_dir/release.manifest"
 
   require_commands git gh shasum stat awk || return 1
@@ -358,7 +391,7 @@ publish_release() {
   [[ -f "$manifest_file" ]] || fail "Missing preparation manifest: $manifest_file" || return 1
   manifest_assert_schema "$manifest_file" \
     version build_number base_tag source_head project_sha256 readme_sha256 notes_sha256 \
-    dmg_sha256 dmg_size notary_status notary_id submit_sha256 wait_sha256 notary_log_sha256 \
+    dmg_sha256 dmg_size appcast_sha256 appcast_size notary_status notary_id submit_sha256 wait_sha256 notary_log_sha256 \
     verification_sha256 prepared_at_utc || fail "Release manifest schema is invalid" || return 1
   assert_release_notes "$notes_file" || fail "Release notes changed or are invalid" || return 1
   [[ -f "$dmg_path" ]] || fail "Missing prepared DMG: $dmg_path" || return 1
@@ -375,6 +408,9 @@ publish_release() {
   manifest_notes_hash=$(manifest_read "$manifest_file" notes_sha256) || return 1
   manifest_dmg_hash=$(manifest_read "$manifest_file" dmg_sha256) || return 1
   manifest_dmg_size=$(manifest_read "$manifest_file" dmg_size) || return 1
+  local manifest_appcast_hash manifest_appcast_size
+  manifest_appcast_hash=$(manifest_read "$manifest_file" appcast_sha256) || return 1
+  manifest_appcast_size=$(manifest_read "$manifest_file" appcast_size) || return 1
   manifest_status=$(manifest_read "$manifest_file" notary_status) || return 1
   manifest_id=$(manifest_read "$manifest_file" notary_id) || return 1
 
@@ -413,6 +449,8 @@ publish_release() {
   print -r -- "DMG: $dmg_path"
   print -r -- "Size: $manifest_dmg_size bytes"
   print -r -- "SHA-256: $manifest_dmg_hash"
+  print -r -- "Appcast: $appcast_path ($manifest_appcast_size bytes)"
+  print -r -- "Appcast SHA-256: $manifest_appcast_hash"
   print -r -- ""
   render_release_body "$notes_file"
   print -r -- ""
@@ -421,7 +459,7 @@ publish_release() {
   print -r -- "  git commit -m 'chore: release $tag'"
   print -r -- "  git tag -a '$tag' -m 'Release $tag'"
   print -r -- "  git push --atomic origin main 'refs/tags/$tag'"
-  print -r -- "  gh release create '$tag' 'Brewery-$version.dmg' --title 'Release : $tag' --notes-file release-notes.md --verify-tag"
+  print -r -- "  gh release create '$tag' 'Brewery-$version.dmg' 'appcast.xml' --title 'Release : $tag' --notes-file release-notes.md --verify-tag"
   print -n -- "Type PUBLISH $tag to continue: "
 
   local confirmation
@@ -462,6 +500,8 @@ publish_release() {
   [[ "$(sha256_file "$notes_file")" == "$manifest_notes_hash" ]] || fail "Release notes changed before tag/push" || return 1
   [[ "$(sha256_file "$dmg_path")" == "$manifest_dmg_hash" ]] || fail "DMG changed before tag/push" || return 1
 
+  [[ "$(sha256_file "$appcast_path")" == "$manifest_appcast_hash" ]] || fail "Appcast changed before tag/push" || return 1
+
   git -C "$REPOSITORY_ROOT" tag -a "$tag" -m "Release $tag" || return 1
   [[ "$(git -C "$REPOSITORY_ROOT" rev-parse "$tag^{commit}")" == "$(git -C "$REPOSITORY_ROOT" rev-parse HEAD)" ]] || fail "Release tag does not point to the verified release commit" || return 1
   if ! git -C "$REPOSITORY_ROOT" push --atomic origin main "refs/tags/$tag"; then
@@ -469,23 +509,24 @@ publish_release() {
     return 1
   fi
 
-  if [[ "$(sha256_file "$notes_file")" != "$manifest_notes_hash" || "$(sha256_file "$dmg_path")" != "$manifest_dmg_hash" ]]; then
+  if [[ "$(sha256_file "$notes_file")" != "$manifest_notes_hash" || "$(sha256_file "$dmg_path")" != "$manifest_dmg_hash" || "$(sha256_file "$appcast_path")" != "$manifest_appcast_hash" ]]; then
     print -u2 -r -- "Remote commit and tag were pushed, but release inputs changed before GitHub Release creation."
-    print -u2 -r -- "GitHub Release was not created. Restore the files until both checks succeed:"
+    print -u2 -r -- "GitHub Release was not created. Restore the files until all manifest checks succeed:"
     print -u2 -r -- "  test \"\$(shasum -a 256 '$notes_file' | awk '{ print \$1 }')\" = '$manifest_notes_hash'"
     print -u2 -r -- "  test \"\$(shasum -a 256 '$dmg_path' | awk '{ print \$1 }')\" = '$manifest_dmg_hash'"
+    print -u2 -r -- "  test \"\$(shasum -a 256 '$appcast_path' | awk '{ print \$1 }')\" = '$manifest_appcast_hash'"
     print -u2 -r -- "Then create the missing Release:"
-    print -u2 -r -- "  gh release create '$tag' '$dmg_path' --repo '$GITHUB_REPOSITORY' --title 'Release : $tag' --notes-file '$notes_file' --verify-tag"
+    print -u2 -r -- "  gh release create '$tag' '$dmg_path' '$appcast_path' --repo '$GITHUB_REPOSITORY' --title 'Release : $tag' --notes-file '$notes_file' --verify-tag"
     return 1
   fi
 
-  if ! gh release create "$tag" "$dmg_path" \
+  if ! gh release create "$tag" "$dmg_path" "$appcast_path" \
     --repo "$GITHUB_REPOSITORY" \
     --title "Release : $tag" \
     --notes-file "$notes_file" \
     --verify-tag; then
     print -u2 -r -- "Remote commit and tag were pushed, but GitHub Release creation failed."
-    print -u2 -r -- "Retry: gh release create $tag '$dmg_path' --repo $GITHUB_REPOSITORY --title 'Release : $tag' --notes-file '$notes_file' --verify-tag"
+    print -u2 -r -- "Retry: gh release create $tag '$dmg_path' '$appcast_path' --repo $GITHUB_REPOSITORY --title 'Release : $tag' --notes-file '$notes_file' --verify-tag"
     return 1
   fi
 
@@ -497,25 +538,13 @@ publish_release() {
   fi
 
   local remote_tag remote_title remote_body remote_draft remote_prerelease
-  local remote_asset_name remote_asset_size remote_asset_digest remote_asset_json remote_url expected_body
+  local remote_url expected_body
   remote_tag=$(json_field "$readback_json" tagName) || published_verification_failure "$tag" "missing tagName" || return 1
   remote_title=$(json_field "$readback_json" name) || published_verification_failure "$tag" "missing name" || return 1
   remote_body=$(json_field "$readback_json" body) || published_verification_failure "$tag" "missing body" || return 1
   remote_draft=$(json_field "$readback_json" isDraft) || published_verification_failure "$tag" "missing draft state" || return 1
   remote_prerelease=$(json_field "$readback_json" isPrerelease) || published_verification_failure "$tag" "missing prerelease state" || return 1
-  remote_asset_name=$(plutil -extract assets.0.name raw -o - "$readback_json") || published_verification_failure "$tag" "missing release asset" || return 1
-  remote_asset_size=$(plutil -extract assets.0.size raw -o - "$readback_json") || published_verification_failure "$tag" "missing asset size" || return 1
-  remote_asset_json=$(plutil -extract assets.0 json -o - "$readback_json") || published_verification_failure "$tag" "invalid asset metadata" || return 1
-  if plutil -extract assets.1 json -o - "$readback_json" >/dev/null 2>&1; then
-    published_verification_failure "$tag" "more than one release asset"
-    return 1
-  fi
-  if remote_asset_digest=$(plutil -extract assets.0.digest raw -o - "$readback_json" 2>/dev/null); then
-    [[ "$remote_asset_digest" == "sha256:$manifest_dmg_hash" ]] || published_verification_failure "$tag" "asset digest mismatch" || return 1
-  elif ! print -r -- "$remote_asset_json" | grep -Eq '"digest"[[:space:]]*:[[:space:]]*null'; then
-    published_verification_failure "$tag" "digest was neither a SHA-256 value nor explicit null"
-    return 1
-  fi
+  verify_release_assets "$readback_json" "Brewery-$version.dmg" "$manifest_dmg_size" "$manifest_dmg_hash" "$manifest_appcast_size" "$manifest_appcast_hash" || published_verification_failure "$tag" "release asset names, sizes, or digests differ from prepared files" || return 1
   remote_url=$(json_field "$readback_json" url) || published_verification_failure "$tag" "missing URL" || return 1
   expected_body=$(render_release_body "$notes_file") || return 1
 
@@ -523,8 +552,6 @@ publish_release() {
   [[ "$remote_title" == "Release : $tag" ]] || published_verification_failure "$tag" "title mismatch" || return 1
   [[ "$remote_body" == "$expected_body" ]] || published_verification_failure "$tag" "body mismatch" || return 1
   [[ "$remote_draft" == false && "$remote_prerelease" == false ]] || published_verification_failure "$tag" "draft/prerelease state mismatch" || return 1
-  [[ "$remote_asset_name" == "Brewery-$version.dmg" ]] || published_verification_failure "$tag" "asset name mismatch" || return 1
-  [[ "$remote_asset_size" == "$manifest_dmg_size" ]] || published_verification_failure "$tag" "asset size mismatch" || return 1
 
   print -r -- "Published and verified: $remote_url"
 }

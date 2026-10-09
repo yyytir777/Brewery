@@ -1,104 +1,81 @@
-//
-//  PackagePreviewView.swift
-//  Brewery
-//
-//  Created by Wonjae Lim on 3/27/26.
-//
-
 import SwiftUI
 
 struct PackagePreviewView: View {
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) private var dismiss
     @ObservedObject var vm: BreweryViewModel
     let name: String
     let isCask: Bool
+    @State private var formula: BreweryFormula?
+    @State private var cask: BreweryCask?
+    @State private var isLoading = true
+    @State private var error: String?
 
-    private var packageID: PackageID {
-        isCask ? .cask(name) : .formula(name)
-    }
-    
-    @State private var formula: BreweryFormula? = nil
-    @State private var cask: BreweryCask? = nil
-    @State private var isLoading: Bool = true
-    
-    var desc: String? { formula?.desc ?? cask?.desc }
-    var homepage: String { formula?.homepage ?? cask?.homepage ?? "" }
-    var version: String { formula?.latest_version ?? cask?.latest_version ?? "unknown" }
-    
+    private var packageID: PackageID { isCask ? .cask(name) : .formula(name) }
+    private var installed: Bool { vm.installedPackageIDs.contains(packageID) }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text(name).font(.title2.bold()).textSelection(.enabled)
+                Spacer()
+                Button { dismiss() } label: { Image(systemName: "xmark.circle.fill") }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Close package information")
+                    .accessibilityIdentifier("preview.close")
+            }
             if isLoading {
-                HStack {
-                    Spacer()
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                            .font(.title2)
-                    }
-                    .buttonStyle(.plain)
-                    .focusable(false)
-                }
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                ProgressView("Loading package information…").frame(maxWidth: .infinity, minHeight: 100)
+            } else if let error {
+                Label("Information unavailable", systemImage: "exclamationmark.triangle").font(.headline)
+                Text(error).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("preview.error")
+                Button("Try Again") { Task { await loadInfo() } }
+                    .accessibilityIdentifier("preview.retry")
             } else {
-                HStack {
-                    Text(name)
-                        .font(.title2.bold())
-                    
-                    Spacer()
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                            .font(.title2)
-                    }
-                    .buttonStyle(.plain)
+                if let description = formula?.desc ?? cask?.desc {
+                    Text(description).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
-                
-                if let desc {
-                    Text(desc)
-                        .foregroundStyle(.secondary)
-                }
-                
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Info")
-                        .font(.headline)
-                    GroupBox {
-                        VStack(spacing: 0) {
-                            infoRow(key: "Version", value: version)
-                            Divider()
-                            infoLinkRow(key: "Homepage", url: homepage)
-                        }
+                GroupBox("Package information") {
+                    VStack(spacing: 0) {
+                        infoRow(key: "Version", value: formula?.latest_version ?? cask?.latest_version ?? "Unknown")
+                        Divider()
+                        infoLinkRow(key: "Homepage", url: formula?.homepage ?? cask?.homepage ?? "")
                     }
                 }
-                
-                Divider()
-                
+                .accessibilityIdentifier("preview.content")
                 HStack {
+                    if !vm.hasLoadedInventory {
+                        Text("Connect to Homebrew to install packages.").font(.caption).foregroundStyle(.secondary)
+                    }
                     Spacer()
-                    Button(vm.installingPackageIDs.contains(packageID) ? "Installing…" : "Install") {
+                    Button(LocalizedStringKey(installed ? "Installed" : vm.isOperating(packageID) ? "Waiting / Installing…" : "Install")) {
                         Task {
                             if isCask { await vm.installCask(name: name) }
                             else { await vm.installFormula(name: name) }
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(vm.installingPackageIDs.contains(packageID))
+                    .disabled(installed || vm.isOperating(packageID) || !vm.hasLoadedInventory || vm.isHomebrewAvailable != true)
                 }
-                
             }
         }
-        .padding(24)
-        .frame(width: 600)
-        .task {
-            let info = await vm.fetchPackageInfo(name: name, isCask: isCask)
+        .padding(20)
+        .frame(width: 420)
+        .task(id: packageID.id) { await loadInfo() }
+    }
+
+    private func loadInfo() async {
+        isLoading = true
+        error = nil
+        defer { isLoading = false }
+        do {
+            let info = try await vm.packageInfo(for: packageID)
+            guard !Task.isCancelled else { return }
             formula = info.formula
             cask = info.cask
-            isLoading = false
+        } catch {
+            guard !Task.isCancelled else { return }
+            self.error = error.localizedDescription
         }
     }
-}
-
-#Preview {
-    PackagePreviewView(vm: BreweryViewModel(), name: "git", isCask: false)
 }

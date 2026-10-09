@@ -18,7 +18,7 @@ func validatedHTTPURL(from value: String) -> URL? {
 
 func infoRow(key: String, value: String) -> some View {
     HStack {
-        Text(key)
+        Text(LocalizedStringKey(key))
             .foregroundStyle(.secondary)
             .frame(width: 120, alignment: .leading)
             .textSelection(.enabled)
@@ -35,7 +35,7 @@ func infoRow(key: String, value: String) -> some View {
 
 func infoLinkRow(key: String, url: String) -> some View {
     HStack {
-        Text(key)
+        Text(LocalizedStringKey(key))
             .foregroundStyle(.secondary)
             .frame(width: 120, alignment: .leading)
             .textSelection(.enabled)

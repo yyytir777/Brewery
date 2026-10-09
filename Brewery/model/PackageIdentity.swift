@@ -1,11 +1,11 @@
 import Foundation
 
-enum PackageKind: String, Codable, CaseIterable, Sendable {
+nonisolated enum PackageKind: String, Codable, CaseIterable, Sendable {
     case formula
     case cask
 }
 
-struct PackageID: Hashable, Identifiable, Codable, Sendable {
+nonisolated struct PackageID: Hashable, Identifiable, Codable, Sendable {
     let kind: PackageKind
     let name: String
 
@@ -13,7 +13,8 @@ struct PackageID: Hashable, Identifiable, Codable, Sendable {
 
     init(kind: PackageKind, name: String) {
         self.kind = kind
-        self.name = name
+        let officialPrefix = kind == .formula ? "homebrew/core/" : "homebrew/cask/"
+        self.name = name.hasPrefix(officialPrefix) ? String(name.dropFirst(officialPrefix.count)) : name
     }
 
     static func formula(_ name: String) -> Self {

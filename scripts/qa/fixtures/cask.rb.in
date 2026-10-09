@@ -1,0 +1,10 @@
+cask "qa-app" do
+  version "${version}"
+  sha256 "${sha256}"
+  url "${url}"
+  name "Brewery QA"
+  desc "Disposable local application fixture"
+  homepage "https://example.invalid/brewery-qa"
+
+  app "Brewery QA.app"
+end

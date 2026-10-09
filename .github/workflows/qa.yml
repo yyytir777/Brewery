@@ -1,0 +1,161 @@
+name: Brewery QA
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: brewery-qa-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # macos-15 defaults to Xcode 16.4; this project uses Swift 6.2 settings.
+  DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+
+jobs:
+  unit-tests:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Record toolchain
+        run: |
+          mkdir -p "$RUNNER_TEMP/results"
+          xcodebuild -version | tee "$RUNNER_TEMP/results/toolchain.log"
+          sw_vers | tee -a "$RUNNER_TEMP/results/toolchain.log"
+      - name: Unit tests (Brewery scheme)
+        timeout-minutes: 15
+        run: |
+          set -o pipefail
+          xcodebuild -project Brewery.xcodeproj -scheme Brewery \
+            -configuration Debug -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath "$RUNNER_TEMP/unit-DD" \
+            -resultBundlePath "$RUNNER_TEMP/results/unit.xcresult" \
+            -only-testing:BreweryTests -parallel-testing-enabled NO \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= ENABLE_HARDENED_RUNTIME=NO \
+            test 2>&1 | tee "$RUNNER_TEMP/results/unit.log"
+      - name: Release script and catalog generator regressions
+        timeout-minutes: 3
+        run: |
+          set -o pipefail
+          zsh scripts/tests/release_test.sh 2>&1 | tee "$RUNNER_TEMP/results/release-scripts.log"
+          python3 -m unittest discover -s scripts/tests -p '*test.py' 2>&1 | tee "$RUNNER_TEMP/results/catalog-generator.log"
+          python3 -m unittest discover -s scripts/qa -p 'test_*.py' 2>&1 | tee "$RUNNER_TEMP/results/qa-harness.log"
+      - name: Preserve unit results
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: unit-results-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  ui-tests:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify hosted desktop and record toolchain
+        timeout-minutes: 2
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/results"
+          xcodebuild -version | tee "$RUNNER_TEMP/results/toolchain.log"
+          sw_vers | tee -a "$RUNNER_TEMP/results/toolchain.log"
+          launchctl print "gui/$(id -u)" > "$RUNNER_TEMP/results/gui-session.log"
+          automationmodetool | tee "$RUNNER_TEMP/results/automation-mode.log"
+          if ! grep -q 'DOES NOT REQUIRE' "$RUNNER_TEMP/results/automation-mode.log"; then
+            echo 'Hosted runner lacks its documented Xcode UI automation setup.' >&2
+            exit 1
+          fi
+      - name: Build UI target (BreweryUI scheme)
+        timeout-minutes: 8
+        run: |
+          set -o pipefail
+          xcodebuild -project Brewery.xcodeproj -scheme BreweryUI \
+            -configuration Debug -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath "$RUNNER_TEMP/ui-DD" \
+            -resultBundlePath "$RUNNER_TEMP/results/ui-build.xcresult" \
+            -only-testing:BreweryUITests \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= ENABLE_HARDENED_RUNTIME=NO \
+            build-for-testing 2>&1 | tee "$RUNNER_TEMP/results/ui-build.log"
+      - name: Execute fixture UI regressions
+        timeout-minutes: 10
+        run: |
+          set -o pipefail
+          xcodebuild -project Brewery.xcodeproj -scheme BreweryUI \
+            -configuration Debug -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath "$RUNNER_TEMP/ui-DD" \
+            -resultBundlePath "$RUNNER_TEMP/results/ui.xcresult" \
+            -only-testing:BreweryUITests -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 90 \
+            -maximum-test-execution-time-allowance 120 \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= ENABLE_HARDENED_RUNTIME=NO \
+            test-without-building 2>&1 | tee "$RUNNER_TEMP/results/ui.log"
+          xcrun xcresulttool get test-results summary \
+            --path "$RUNNER_TEMP/results/ui.xcresult" > "$RUNNER_TEMP/results/ui-summary.json"
+          python3 - "$RUNNER_TEMP/results/ui-summary.json" <<'PY'
+          import json, sys
+          from pathlib import Path
+          result = json.loads(Path(sys.argv[1]).read_text())
+          expected = 12
+          assert result['totalTestCount'] == expected, result
+          assert result['passedTests'] == expected, result
+          assert result['failedTests'] == 0 and result['skippedTests'] == 0, result
+          print(f'All {expected} UI regressions executed and passed; none skipped.')
+          PY
+      - name: Preserve UI results and failure attachments
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ui-results-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  release-build:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build universal Release without signing
+        timeout-minutes: 10
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/results"
+          xcodebuild -version | tee "$RUNNER_TEMP/results/toolchain.log"
+          xcodebuild -project Brewery.xcodeproj -scheme Brewery \
+            -configuration Release -destination 'generic/platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/release-DD" \
+            -resultBundlePath "$RUNNER_TEMP/results/release.xcresult" \
+            ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee "$RUNNER_TEMP/results/release.log"
+          lipo -archs "$RUNNER_TEMP/release-DD/Build/Products/Release/Brewery.app/Contents/MacOS/Brewery" \
+            | tee "$RUNNER_TEMP/results/release-architectures.log"
+          grep -q 'arm64' "$RUNNER_TEMP/results/release-architectures.log"
+          grep -q 'x86_64' "$RUNNER_TEMP/results/release-architectures.log"
+          strings "$RUNNER_TEMP/release-DD/Build/Products/Release/Brewery.app/Contents/MacOS/Brewery" > "$RUNNER_TEMP/release-strings.txt"
+          if grep -E 'BreweryUITestFixture|--brewery-ui-testing|fixture.completeOperation' "$RUNNER_TEMP/release-strings.txt"; then
+            echo 'Debug UI fixtures leaked into the Release binary.' >&2
+            exit 1
+          fi
+      - name: Preserve Release build results
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: release-results-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/results/
+          if-no-files-found: warn
+          retention-days: 14

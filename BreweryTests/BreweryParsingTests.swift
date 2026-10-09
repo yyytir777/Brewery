@@ -1,6 +1,7 @@
 import XCTest
 @testable import Brewery
 
+@MainActor
 final class BreweryParsingTests: XCTestCase {
     func testFormulaInstalledDateIsNilWhenInstalledArrayIsEmpty() {
         let formula = BreweryFormula(
@@ -19,6 +20,131 @@ final class BreweryParsingTests: XCTestCase {
         XCTAssertNil(formula.installed_date)
     }
 
+    func testDecodedMultiKegSnapshotSelectsLinkedVersionAndItsInstallDate() throws {
+        // Reduced from native-snapshot-03.json (2026-10-03 real disposable-prefix QA).
+        // Homebrew retains the old keg first after a successful 1.0 -> 2.0 upgrade.
+        for row in [
+            (name: "qa-batch", oldTime: 1_791_012_386.0, linkedTime: 1_791_012_655.0),
+            (name: "qa-formula", oldTime: 1_791_012_381.0, linkedTime: 1_791_012_658.0)
+        ] {
+            let formula = try decodeFormula(
+                name: row.name,
+                installed: [("1.0", row.oldTime), ("2.0", row.linkedTime)],
+                linkedKeg: "2.0"
+            )
+
+            XCTAssertEqual(formula.cur_version, "2.0", row.name)
+            XCTAssertEqual(formula.installed_date, row.linkedTime, row.name)
+        }
+    }
+
+    func testDecodedLinkedKegTakesPrecedenceOverMoreRecentlyInstalledVersion() throws {
+        let formula = try decodeFormula(
+            installed: [("2.0", 300), ("1.0", 100)],
+            linkedKeg: "1.0"
+        )
+
+        XCTAssertEqual(formula.cur_version, "1.0")
+        XCTAssertEqual(formula.installed_date, 100)
+    }
+
+    func testDecodedUnlinkedKegOnlyFormulaUsesNewestInstallInsteadOfStableOrArrayOrder() throws {
+        // A null linked_keg and an omitted linked_keg both occur without an active link.
+        for includeLinkedKeg in [true, false] {
+            let formula = try decodeFormula(
+                installed: [("1.0", 100), ("2.0", 300), ("3.0", 200)],
+                linkedKeg: nil,
+                includeLinkedKeg: includeLinkedKeg,
+                stableVersion: "3.0",
+                kegOnly: true
+            )
+
+            XCTAssertEqual(formula.cur_version, "2.0", "linked_keg present: \(includeLinkedKeg)")
+            XCTAssertEqual(formula.installed_date, 300, "linked_keg present: \(includeLinkedKeg)")
+            XCTAssertEqual(formula.latest_version, "3.0")
+        }
+    }
+
+    func testDecodedDanglingLinkedKegFallsBackToNewestInstalledTime() throws {
+        let formula = try decodeFormula(
+            installed: [("1.0", 100), ("2.0", 300), ("3.0", 200)],
+            linkedKeg: "missing-keg",
+            stableVersion: "3.0"
+        )
+
+        XCTAssertEqual(formula.cur_version, "2.0")
+        XCTAssertEqual(formula.installed_date, 300)
+    }
+
+    func testDecodedLinkedKegWithUnknownInstallTimeKeepsItsVersionAndNilDate() throws {
+        let formula = try decodeFormula(
+            installed: [("2.0", 300), ("1.0", nil)],
+            linkedKeg: "1.0"
+        )
+
+        XCTAssertEqual(formula.cur_version, "1.0")
+        XCTAssertNil(formula.installed_date)
+    }
+
+    func testDecodedUnlinkedKegPrefersNewestKnownTimeOverUnknownTimes() throws {
+        let formula = try decodeFormula(
+            installed: [("1.0", nil), ("2.0", 300), ("3.0", nil), ("4.0", 100)],
+            linkedKeg: nil,
+            stableVersion: "4.0"
+        )
+
+        XCTAssertEqual(formula.cur_version, "2.0")
+        XCTAssertEqual(formula.installed_date, 300)
+    }
+
+    func testDecodedTimestampTiesUseLastKegInHomebrewOrderIncludingAllUnknownTimes() throws {
+        let cases: [(installed: [(version: String, time: Double?)], version: String, time: Double?)] = [
+            ([("1.0", 300), ("2.0", 300), ("3.0", 100)], "2.0", 300),
+            ([("1.0", nil), ("2.0", nil), ("3.0", nil)], "3.0", nil)
+        ]
+        for row in cases {
+            let formula = try decodeFormula(installed: row.installed, linkedKeg: nil)
+
+            XCTAssertEqual(formula.cur_version, row.version)
+            XCTAssertEqual(formula.installed_date, row.time)
+        }
+    }
+
+    func testDecodedEmptyInstalledArrayKeepsUnknownVersionAndNilDate() throws {
+        let formula = try decodeFormula(installed: [], linkedKeg: nil)
+
+        XCTAssertEqual(formula.cur_version, "unknown")
+        XCTAssertNil(formula.installed_date)
+    }
+
+    private func decodeFormula(
+        name: String = "qa-formula",
+        installed: [(version: String, time: Double?)],
+        linkedKeg: String?,
+        includeLinkedKeg: Bool = true,
+        stableVersion: String = "2.0",
+        kegOnly: Bool = false
+    ) throws -> BreweryFormula {
+        var json: [String: Any] = [
+            "name": name,
+            "full_name": "brewery/qa/" + name,
+            "tap": "brewery/qa",
+            "desc": "Disposable Brewery integration fixture",
+            "homepage": "https://example.invalid/brewery-qa",
+            "license": "MIT",
+            "outdated": false,
+            "dependencies": [],
+            "installed": installed.map { ["version": $0.version, "time": $0.time.map { $0 as Any } ?? NSNull()] },
+            "versions": ["stable": stableVersion, "head": NSNull(), "bottle": false],
+            "keg_only": kegOnly
+        ]
+        if includeLinkedKeg {
+            json["linked_keg"] = linkedKeg.map { $0 as Any } ?? NSNull()
+        }
+        let data = try JSONSerialization.data(withJSONObject: json)
+        return try JSONDecoder().decode(BreweryFormula.self, from: data)
+    }
+
     func testValidatedHTTPURLAcceptsHTTPAndHTTPSOnly() {
         XCTAssertEqual(validatedHTTPURL(from: "https://brew.sh")?.absoluteString, "https://brew.sh")
         XCTAssertEqual(validatedHTTPURL(from: "http://example.com")?.absoluteString, "http://example.com")
@@ -28,6 +154,7 @@ final class BreweryParsingTests: XCTestCase {
     }
 }
 
+@MainActor
 final class BreweryMetadataTests: XCTestCase {
     func testParseVersionUsesFirstNonEmptyLine() {
         let output = "\nHomebrew 4.5.0\nHomebrew/homebrew-core abc123\n"

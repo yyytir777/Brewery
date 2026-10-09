@@ -1,6 +1,7 @@
 import XCTest
 @testable import Brewery
 
+@MainActor
 final class PackageIdentityTests: XCTestCase {
     func testFormulaAndCaskWithSameNameDoNotCollide() {
         XCTAssertNotEqual(PackageID.formula("foo"), PackageID.cask("foo"))

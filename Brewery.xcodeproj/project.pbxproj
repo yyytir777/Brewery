@@ -9,10 +9,18 @@
 /* Begin PBXBuildFile section */
 		6F4D88E62F724A7400576597 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 6F4D88E52F724A7400576597 /* README.md */; };
 		6F7C968D2F72543C00BC6F0B /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 6F7C968C2F72543800BC6F0B /* .gitignore */; };
+		BF3100010000000000000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = BF3100030000000000000001 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
 		6FD100072FD0000000000007 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6F0996B32EE9CEA800CBDF38 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6F0996BA2EE9CEA800CBDF38;
+			remoteInfo = Brewery;
+		};
+		6FD200072FD0000000000007 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 6F0996B32EE9CEA800CBDF38 /* Project object */;
 			proxyType = 1;
@@ -26,6 +34,7 @@
 		6F4D88E52F724A7400576597 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		6F7C968C2F72543800BC6F0B /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		6FD100022FD0000000000002 /* BreweryTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BreweryTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6FD200022FD0000000000002 /* BreweryUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BreweryUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -39,6 +48,11 @@
 			path = BreweryTests;
 			sourceTree = "<group>";
 		};
+		6FD200032FD0000000000003 /* BreweryUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BreweryUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -46,10 +60,18 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BF3100010000000000000001 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		6FD100052FD0000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6FD200052FD0000000000005 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -66,6 +88,7 @@
 				6F4D88E52F724A7400576597 /* README.md */,
 				6F0996BD2EE9CEA800CBDF38 /* Brewery */,
 				6FD100032FD0000000000003 /* BreweryTests */,
+				6FD200032FD0000000000003 /* BreweryUITests */,
 				6F0996BC2EE9CEA800CBDF38 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -75,6 +98,7 @@
 			children = (
 				6F0996BB2EE9CEA800CBDF38 /* Brewery.app */,
 				6FD100022FD0000000000002 /* BreweryTests.xctest */,
+				6FD200022FD0000000000002 /* BreweryUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -99,6 +123,7 @@
 			);
 			name = Brewery;
 			packageProductDependencies = (
+				BF3100030000000000000001 /* Sparkle */,
 			);
 			productName = brewery;
 			productReference = 6F0996BB2EE9CEA800CBDF38 /* Brewery.app */;
@@ -127,6 +152,29 @@
 			productReference = 6FD100022FD0000000000002 /* BreweryTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		6FD200012FD0000000000001 /* BreweryUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6FD2000B2FD000000000000B /* Build configuration list for PBXNativeTarget "BreweryUITests" */;
+			buildPhases = (
+				6FD200042FD0000000000004 /* Sources */,
+				6FD200052FD0000000000005 /* Frameworks */,
+				6FD200062FD0000000000006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				6FD200082FD0000000000008 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				6FD200032FD0000000000003 /* BreweryUITests */,
+			);
+			name = BreweryUITests;
+			packageProductDependencies = (
+			);
+			productName = BreweryUITests;
+			productReference = 6FD200022FD0000000000002 /* BreweryUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -144,6 +192,10 @@
 						CreatedOnToolsVersion = 26.1.1;
 						TestTargetID = 6F0996BA2EE9CEA800CBDF38;
 					};
+					6FD200012FD0000000000001 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = 6F0996BA2EE9CEA800CBDF38;
+					};
 				};
 			};
 			buildConfigurationList = 6F0996B62EE9CEA800CBDF38 /* Build configuration list for PBXProject "Brewery" */;
@@ -151,10 +203,15 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				ko,
 				Base,
+				ko,
 			);
 			mainGroup = 6F0996B22EE9CEA800CBDF38;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				BF3100020000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6F0996BC2EE9CEA800CBDF38 /* Products */;
 			projectDirPath = "";
@@ -162,6 +219,7 @@
 			targets = (
 				6F0996BA2EE9CEA800CBDF38 /* Brewery */,
 				6FD100012FD0000000000001 /* BreweryTests */,
+				6FD200012FD0000000000001 /* BreweryUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -177,6 +235,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		6FD100062FD0000000000006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6FD200062FD0000000000006 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -200,6 +265,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6FD200042FD0000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -207,6 +279,11 @@
 			isa = PBXTargetDependency;
 			target = 6F0996BA2EE9CEA800CBDF38 /* Brewery */;
 			targetProxy = 6FD100072FD0000000000007 /* PBXContainerItemProxy */;
+		};
+		6FD200082FD0000000000008 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6F0996BA2EE9CEA800CBDF38 /* Brewery */;
+			targetProxy = 6FD200072FD0000000000007 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -348,7 +425,7 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "";
+				INFOPLIST_FILE = "Configuration/Brewery-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025 Wonjae Lim. All rights reserved.";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -386,7 +463,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "";
+				INFOPLIST_FILE = "Configuration/Brewery-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025 Wonjae Lim. All rights reserved.";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -419,7 +496,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = yyytir777.BreweryTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -434,12 +511,42 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = yyytir777.BreweryTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Brewery.app/Contents/MacOS/Brewery";
+			};
+			name = Release;
+		};
+		6FD200092FD0000000000009 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = yyytir777.BreweryUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = Brewery;
+			};
+			name = Debug;
+		};
+		6FD2000A2FD000000000000A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = yyytir777.BreweryUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = Brewery;
 			};
 			name = Release;
 		};
@@ -473,8 +580,35 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		6FD2000B2FD000000000000B /* Build configuration list for PBXNativeTarget "BreweryUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6FD200092FD0000000000009 /* Debug */,
+				6FD2000A2FD000000000000A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		BF3100020000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.10.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		BF3100030000000000000001 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BF3100020000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 6F0996B32EE9CEA800CBDF38 /* Project object */;
 }

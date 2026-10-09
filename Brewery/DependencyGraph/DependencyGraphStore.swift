@@ -10,26 +10,37 @@ final class DependencyGraphStore: ObservableObject {
     @Published private(set) var limitMessage: String?
 
     private let loader: DependencyFormulaLoader
-    private let rootID: DependencyNodeID
+    private var rootID: DependencyNodeID
+    private var rootMetadata: DependencyGraphRootMetadata
     private let maxVisibleNodes: Int
-    private var nodesByID: [DependencyNodeID: DependencyGraphNode]
-    private var childrenByParent: [DependencyNodeID: [DependencyNodeID]]
-    private var loadedNodeIDs: Set<DependencyNodeID>
-    private var formulaCache: [String: BreweryFormula]
+    private var nodesByID: [DependencyNodeID: DependencyGraphNode] = [:]
+    private var childrenByParent: [DependencyNodeID: [DependencyNodeID]] = [:]
+    private var loadedNodeIDs: Set<DependencyNodeID> = []
+    private var formulaCache: [String: BreweryFormula] = [:]
     private var inFlightLoads: [String: Task<BreweryFormula, Error>] = [:]
+    private var loadGeneration = 0
 
     init(
         root: BreweryFormula,
         loader: @escaping DependencyFormulaLoader,
         maxVisibleNodes: Int = 150
     ) {
-        let rootID = DependencyNodeID(path: [root.name])
         self.loader = loader
-        self.rootID = rootID
+        self.rootID = DependencyNodeID(path: [root.full_name])
+        self.rootMetadata = DependencyGraphRootMetadata(root)
         self.maxVisibleNodes = maxVisibleNodes
-        self.expandedNodeIDs = [rootID]
-        self.loadedNodeIDs = [rootID]
-        self.formulaCache = [root.name: root]
+        self.expandedNodeIDs = []
+        installRoot(root)
+    }
+
+    private func installRoot(_ root: BreweryFormula) {
+        rootID = DependencyNodeID(path: [root.full_name])
+        expandedNodeIDs = [rootID]
+        loadedNodeIDs = [rootID]
+        formulaCache = [root.full_name: root]
+        selectedNodeID = nil
+        failures = [:]
+        limitMessage = nil
 
         let rootNode = DependencyGraphNode(
             id: rootID,
@@ -45,13 +56,13 @@ final class DependencyGraphStore: ObservableObject {
         }
         let visibleDependencies = Array(uniqueDependencies.prefix(max(0, maxVisibleNodes - 1)))
         let childIDs = visibleDependencies.map { dependency in
-            let id = DependencyNodeID(path: [root.name, dependency])
+            let id = DependencyNodeID(path: [root.full_name, dependency])
             initialNodes[id] = DependencyGraphNode(
                 id: id,
                 parentID: rootID,
                 name: dependency,
                 depth: 1,
-                kind: dependency == root.name ? .cycleReference : .formula
+                kind: dependency == root.full_name ? .cycleReference : .formula
             )
             return id
         }
@@ -76,6 +87,26 @@ final class DependencyGraphStore: ObservableObject {
 
         appendVisible(rootID)
         return result
+    }
+
+    @discardableResult
+    func updateRoot(_ root: BreweryFormula) -> Bool {
+        let metadata = DependencyGraphRootMetadata(root)
+        guard metadata != rootMetadata else {
+            formulaCache[root.full_name] = root
+            return false
+        }
+        cancelPendingLoads()
+        rootMetadata = metadata
+        installRoot(root)
+        return true
+    }
+
+    func cancelPendingLoads() {
+        loadGeneration += 1
+        inFlightLoads.values.forEach { $0.cancel() }
+        inFlightLoads.removeAll()
+        loadingNodeIDs.removeAll()
     }
 
     func select(_ id: DependencyNodeID) {
@@ -107,17 +138,21 @@ final class DependencyGraphStore: ObservableObject {
 
         loadingNodeIDs.insert(id)
         failures[id] = nil
-        defer { loadingNodeIDs.remove(id) }
+        let generation = loadGeneration
+        defer {
+            if generation == loadGeneration { loadingNodeIDs.remove(id) }
+        }
 
         do {
-            let formula = try await loadFormula(named: node.name)
-            guard !Task.isCancelled else { return [] }
+            let formula = try await loadFormula(named: node.id.name)
+            guard generation == loadGeneration, !Task.isCancelled else { return [] }
             installChildren(of: formula, beneath: node)
             loadedNodeIDs.insert(id)
             return revealLoadedChildren(of: id)
         } catch is CancellationError {
             return []
         } catch {
+            guard generation == loadGeneration, !Task.isCancelled else { return [] }
             failures[id] = error.localizedDescription
             return []
         }
@@ -136,15 +171,17 @@ final class DependencyGraphStore: ObservableObject {
             return try await inFlight.value
         }
 
+        let generation = loadGeneration
         let task = Task { try await loader(name) }
         inFlightLoads[name] = task
         do {
             let formula = try await task.value
+            guard generation == loadGeneration else { throw CancellationError() }
             formulaCache[name] = formula
             inFlightLoads[name] = nil
             return formula
         } catch {
-            inFlightLoads[name] = nil
+            if generation == loadGeneration { inFlightLoads[name] = nil }
             throw error
         }
     }

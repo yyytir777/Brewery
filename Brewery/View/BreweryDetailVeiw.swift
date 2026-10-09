@@ -22,12 +22,17 @@ struct BreweryDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                if let error = vm.outdatedError {
+                    InventoryErrorBanner(message: vm.hasLoadedOutdated ? "Showing the last successful update check.\n\(error)" : error) {
+                        Task { await vm.loadInstalled() }
+                    }
+                }
                 if let formula = vm.formula(for: packageID) {
                     detailFormulaSection(formula: formula)
                 } else if let cask = vm.cask(for: packageID) {
                     detailCaskSection(cask: cask)
                 } else {
-                    Text("Information not found.")
+                    Text("This package is no longer installed. Choose another package from Installed or search in Search.")
                         .foregroundStyle(.secondary)
                 }
             }
@@ -35,8 +40,9 @@ struct BreweryDetailView: View {
         }
         .frame(maxWidth: .infinity)
         .navigationTitle(packageID.name)
+        .accessibilityIdentifier("detail.\(packageID.id)")
         .task(id: packageID.id) {
-            brewInfoText = await vm.fetchInfo(name: packageID.name)
+            brewInfoText = await vm.fetchInfo(name: packageID.name, isCask: packageID.kind == .cask)
         }
     }
 
@@ -50,26 +56,27 @@ struct BreweryDetailView: View {
                         .font(.title2)
                         .fontWeight(.semibold)
                         .textSelection(.enabled)
-                    if vm.isOutdated(.formula(formula.name)) {
+                    if vm.isOutdated(formula.packageID) {
                         Text("-> \(formula.latest_version)")
                             .font(.subheadline)
                             .foregroundStyle(.orange)
                             .textSelection(.enabled)
                         
-                        if vm.updatingPackageNames.contains(formula.name) {
+                        if vm.isOperating(formula.packageID) {
                             ProgressView()
                                 .controlSize(.small)
                         } else {
                             Button("Update") {
-                                Task { await vm.updateBrew(name: formula.name, isCask: false) }
+                                Task { await vm.updateBrew(name: formula.packageID.name, isCask: false) }
                             }
                             .buttonStyle(.borderedProminent)
+                            .accessibilityIdentifier("detail.update")
                             .controlSize(.small)
                         }
-                    } else { // 최신버전일 때
-                        Text("Latest")
+                    } else {
+                        Text(LocalizedStringKey(vm.hasLoadedOutdated && vm.outdatedError == nil ? "Latest" : "Update status unknown"))
                             .font(.subheadline)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(vm.hasLoadedOutdated && vm.outdatedError == nil ? .green : .secondary)
                     }
                 }
                 if let desc = formula.desc {
@@ -111,7 +118,7 @@ struct BreweryDetailView: View {
                         },
                         onNavigate: onNavigate
                     )
-                    .id(formula.name)
+                    .id(formula.packageID.id)
                 }
             }
                 
@@ -133,7 +140,8 @@ struct BreweryDetailView: View {
                     showUninstallConfirm = true
                 }
                 .tint(.red)
-                .disabled(vm.uninstallingPackages.contains(formula.name))
+                .accessibilityIdentifier("detail.uninstall")
+                .disabled(vm.isOperating(formula.packageID) || vm.isHomebrewAvailable == false)
             }
 
             if showMoreInfo {
@@ -149,7 +157,7 @@ struct BreweryDetailView: View {
         }
         .confirmationDialog("Uninstall \(formula.name)?", isPresented: $showUninstallConfirm, titleVisibility: .visible) {
             Button("Uninstall", role: .destructive) {
-                Task { await vm.uninstallFormula(name: formula.name) }
+                Task { await vm.uninstallFormula(name: formula.packageID.name) }
             }
         } message: {
             Text("This action cannot be undone.")
@@ -166,26 +174,27 @@ struct BreweryDetailView: View {
                         .font(.title2)
                         .fontWeight(.semibold)
                         .textSelection(.enabled)
-                    if vm.isOutdated(.cask(cask.name)) {
+                    if vm.isOutdated(cask.packageID) {
                         Text("-> \(cask.latest_version)")
                             .font(.subheadline)
                             .foregroundStyle(.orange)
                             .textSelection(.enabled)
                         
-                        if vm.updatingPackageNames.contains(cask.name) {
+                        if vm.isOperating(cask.packageID) {
                             ProgressView()
                                 .controlSize(.small)
                         } else {
                             Button("Update") {
-                                Task { await vm.updateBrew(name: cask.name, isCask: true) }
+                                Task { await vm.updateBrew(name: cask.packageID.name, isCask: true) }
                             }
                             .buttonStyle(.borderedProminent)
+                            .accessibilityIdentifier("detail.update")
                             .controlSize(.small)
                         }
                     } else {
-                        Text("Latest")
+                        Text(LocalizedStringKey(vm.hasLoadedOutdated && vm.outdatedError == nil ? "Latest" : "Update status unknown"))
                             .font(.subheadline)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(vm.hasLoadedOutdated && vm.outdatedError == nil ? .green : .secondary)
                             .textSelection(.enabled)
                     }
                 }
@@ -237,11 +246,13 @@ struct BreweryDetailView: View {
                         zapOnUninstall = true
                         showUninstallConfirm = true
                     }
+                    .accessibilityIdentifier("detail.uninstallAndDeleteData")
                 } label: {
                     Text("Uninstall")
                 }
                 .tint(.red)
-                .disabled(vm.uninstallingPackages.contains(cask.name))
+                .accessibilityIdentifier("detail.uninstall")
+                .disabled(vm.isOperating(cask.packageID) || vm.isHomebrewAvailable == false)
                 
             }
 
@@ -263,14 +274,14 @@ struct BreweryDetailView: View {
             Button(zapOnUninstall ? "Uninstall and Delete Data" : "Uninstall", role: .destructive) {
                 Task {
                     if zapOnUninstall {
-                        await vm.uninstallCaskWithZap(name: cask.name)
+                        await vm.uninstallCaskWithZap(name: cask.packageID.name)
                     } else {
-                        await vm.uninstallCask(name: cask.name)
+                        await vm.uninstallCask(name: cask.packageID.name)
                     }
                 }
             }
         } message: {
-            Text(zapOnUninstall ? "This will also delete all associated data." : "This action cannot be undone.")
+            Text(zapOnUninstall ? "This also deletes associated settings and data, including files that may be shared with other apps. This cannot be undone." : "This action cannot be undone.")
         }
     }
 }

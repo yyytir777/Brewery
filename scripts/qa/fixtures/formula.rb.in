@@ -1,0 +1,13 @@
+class ${class_name} < Formula
+  desc "Disposable Brewery integration fixture"
+  homepage "https://example.invalid/brewery-qa"
+  url "${url}"
+  version "${version}"
+  sha256 "${sha256}"
+  license "MIT"
+
+  def install
+    ${permission_check}
+    bin.install "qa-payload" => "${name}"
+  end
+end

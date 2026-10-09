@@ -5,13 +5,6 @@
 //  Created by Wonjae Lim on 12/11/25.
 //
 
-struct SearchResult: Decodable, Identifiable {
-    var id: String { packageID.id }
-    var packageID: PackageID { isCask ? .cask(name) : .formula(name) }
-    let name: String
-    let isCask: Bool
-}
-
 struct BrewInfoResult: Decodable {
     let formulae: [BreweryFormula]
     let casks: [BreweryCask]
@@ -19,7 +12,8 @@ struct BrewInfoResult: Decodable {
 
 struct BreweryFormula: Decodable, Identifiable {
     // 기본 정보
-    var id: String { name }
+    var id: String { packageID.id }
+    var packageID: PackageID { .formula(full_name) }
     let name: String
     let full_name: String
     let tap: String
@@ -28,9 +22,9 @@ struct BreweryFormula: Decodable, Identifiable {
     let license: String?
     
     // 버전
-    var cur_version: String { installed.first?.version ?? "unknown" }
+    var cur_version: String { selectedInstallation?.version ?? "unknown" }
     var latest_version: String { versions.stable ?? "unknown" }
-    var installed_date: Double? { installed.first?.time }
+    var installed_date: Double? { selectedInstallation?.time }
     let outdated: Bool // 업데이트 가능 여부
     
     // 의존성
@@ -38,11 +32,28 @@ struct BreweryFormula: Decodable, Identifiable {
         
     let installed: [FormulaInstalled]
     let versions: FormulaVersions
+    var linked_keg: String? = nil
+
+    private var selectedInstallation: FormulaInstalled? {
+        if let linked_keg,
+           let linked = installed.first(where: { $0.version == linked_keg }) {
+            return linked
+        }
+
+        // Unlinked and keg-only formulas have no linked version. Prefer a known
+        // recent install time; ties retain Homebrew's last (highest) keg order.
+        return installed.enumerated().max { lhs, rhs in
+            let lhsTime = lhs.element.time ?? -Double.infinity
+            let rhsTime = rhs.element.time ?? -Double.infinity
+            return lhsTime == rhsTime ? lhs.offset < rhs.offset : lhsTime < rhsTime
+        }?.element
+    }
 }
 
 struct FormulaInstalled: Decodable {
+    var installed_on_request: Bool? = nil
     let version: String
-    let time: Double
+    let time: Double?
 }
 
 struct FormulaVersions: Decodable {
@@ -52,7 +63,8 @@ struct FormulaVersions: Decodable {
 }
 
 struct BreweryCask: Decodable, Identifiable {
-    var id: String { token }
+    var id: String { packageID.id }
+    var packageID: PackageID { .cask(full_token ?? token) }
     let token: String
     let desc: String?
     let homepage: String
@@ -65,5 +77,6 @@ struct BreweryCask: Decodable, Identifiable {
     var outdated: Bool { installed != nil && installed != version }
     let installed_time: Double?
     let auto_updates: Bool?
+    var full_token: String? = nil
 
 }

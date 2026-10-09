@@ -6,10 +6,11 @@
 //
 import Foundation
 
+@MainActor
 final class BreweryLogger {
     static let shared = BreweryLogger()
     
-    private let fileURL: URL
+    let fileURL: URL
     private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd HH:mm:ss"
@@ -28,11 +29,36 @@ final class BreweryLogger {
     func logFileSize() -> String {
         guard let attrs = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
               let bytes = attrs[.size] as? Int64 else { return "0 KB" }
-        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        return AppPreferences.shared.values.formatBytes(bytes)
     }
 
     func clearLog() throws {
-        try FileManager.default.removeItem(at: fileURL)
+        if FileManager.default.fileExists(atPath: fileURL.path) { try FileManager.default.removeItem(at: fileURL) }
+    }
+
+    func contents() throws -> String {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return "" }
+        return try String(contentsOf: fileURL, encoding: .utf8)
+    }
+
+    func prune(days: Int, now: Date = Date()) throws {
+        let text = try contents()
+        let retained = Self.retainedLog(text, cutoff: now.addingTimeInterval(-Double(days) * 86400))
+        if retained != text { try retained.write(to: fileURL, atomically: true, encoding: .utf8) }
+    }
+
+    nonisolated static func retainedLog(_ text: String, cutoff: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        var keep = true
+        return text.components(separatedBy: "\n").filter { line in
+            if line.hasPrefix("["), line.count >= 21 {
+                let stamp = String(line.dropFirst().prefix(19))
+                if let date = formatter.date(from: stamp) { keep = date >= cutoff }
+            }
+            return keep
+        }.joined(separator: "\n")
     }
 
     func log(result: BreweryCommandResult, logOutput: Bool, duration: TimeInterval) async {

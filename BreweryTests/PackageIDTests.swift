@@ -1,6 +1,7 @@
 import XCTest
 @testable import Brewery
 
+@MainActor
 final class PackageIDTests: XCTestCase {
     func testFormulaAndCaskWithSameNameHaveDifferentIdentity() {
         let formula = PackageID.formula("foo")
@@ -11,11 +12,4 @@ final class PackageIDTests: XCTestCase {
         XCTAssertEqual(cask.id, "cask:foo")
     }
 
-    func testSearchResultExposesTypedPackageID() {
-        let formulaResult = SearchResult(name: "git", isCask: false)
-        let caskResult = SearchResult(name: "firefox", isCask: true)
-
-        XCTAssertEqual(formulaResult.packageID, .formula("git"))
-        XCTAssertEqual(caskResult.packageID, .cask("firefox"))
-    }
 }

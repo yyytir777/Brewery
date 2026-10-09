@@ -39,8 +39,175 @@ private actor LoaderProbe {
     }
 }
 
+// Deliberately ignores cancellation so tests can deliver a response from an obsolete request.
+private actor DeferredGraphLoader {
+    private var requests: [CheckedContinuation<BreweryFormula, Error>] = []
+    private var requestWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
+
+    func load(_ name: String) async throws -> BreweryFormula {
+        try await withCheckedThrowingContinuation { continuation in
+            requests.append(continuation)
+            let ready = requestWaiters.filter { $0.0 <= requests.count }
+            requestWaiters.removeAll { $0.0 <= requests.count }
+            ready.forEach { $0.1.resume() }
+        }
+    }
+
+    func waitForRequests(_ count: Int) async {
+        guard requests.count < count else { return }
+        await withCheckedContinuation { requestWaiters.append((count, $0)) }
+    }
+
+    func complete(_ index: Int, with result: Result<BreweryFormula, LoaderProbeError>) {
+        requests[index].resume(with: result.mapError { $0 as Error })
+    }
+}
+
 @MainActor
 final class DependencyGraphStoreTests: XCTestCase {
+    func testChangedRootDependenciesReplaceRemovedNodesAndResetSelection() async {
+        let store = DependencyGraphStore(root: makeFormula("root", dependencies: ["old"])) {
+            makeFormula($0, dependencies: ["obsolete"])
+        }
+        let oldID = DependencyNodeID(path: ["root", "old"])
+        _ = await store.toggleExpansion(oldID)
+        store.select(oldID)
+
+        let changed = store.updateRoot(makeFormula("root", dependencies: ["new"]))
+
+        XCTAssertTrue(changed)
+        XCTAssertEqual(store.visibleNodes.map(\.name), ["root", "new"])
+        XCTAssertNil(store.selectedNodeID)
+        XCTAssertEqual(store.expandedNodeIDs, [DependencyNodeID(path: ["root"])])
+    }
+
+    func testUnchangedRootDependenciesPreserveExpandedStateAndSelection() async {
+        let root = makeFormula("root", dependencies: ["child"])
+        let store = DependencyGraphStore(root: root) { makeFormula($0, dependencies: ["leaf"]) }
+        let childID = DependencyNodeID(path: ["root", "child"])
+        _ = await store.toggleExpansion(childID)
+        store.select(childID)
+
+        let changed = store.updateRoot(root)
+
+        XCTAssertFalse(changed)
+        XCTAssertEqual(store.visibleNodes.map(\.name), ["root", "child", "leaf"])
+        XCTAssertEqual(store.selectedNodeID, childID)
+        XCTAssertEqual(store.state(for: childID), .expanded)
+    }
+
+    func testRootRefreshDiscardsCachedDescendantMetadata() async {
+        let probe = LoaderProbe(results: ["child": .success(makeFormula("child", dependencies: ["old"]))])
+        let store = DependencyGraphStore(root: makeFormula("root", dependencies: ["child"])) {
+            try await probe.load($0)
+        }
+        let childID = DependencyNodeID(path: ["root", "child"])
+        _ = await store.toggleExpansion(childID)
+        await probe.setResult(.success(makeFormula("child", dependencies: ["fresh"])), for: "child")
+
+        _ = store.updateRoot(makeFormula("root", dependencies: ["child", "new"]))
+        _ = await store.toggleExpansion(childID)
+
+        XCTAssertEqual(store.visibleNodes.map(\.name), ["root", "child", "fresh", "new"])
+    }
+
+    func testObsoleteRootLoadCannotClearCurrentLoadingStateOrInstallChildren() async {
+        let loader = DeferredGraphLoader()
+        let store = DependencyGraphStore(root: makeFormula("root", dependencies: ["child"])) {
+            try await loader.load($0)
+        }
+        let childID = DependencyNodeID(path: ["root", "child"])
+        let oldLoad = Task { await store.toggleExpansion(childID) }
+        await loader.waitForRequests(1)
+
+        _ = store.updateRoot(makeFormula("root", dependencies: ["child", "new"]))
+        let newLoad = Task { await store.toggleExpansion(childID) }
+        await loader.waitForRequests(2)
+        await loader.complete(0, with: .success(makeFormula("child", dependencies: ["obsolete"])))
+        let oldAdded = await oldLoad.value
+
+        XCTAssertTrue(oldAdded.isEmpty)
+        XCTAssertEqual(store.state(for: childID), .loading)
+        XCTAssertEqual(store.visibleNodes.map(\.name), ["root", "child", "new"])
+
+        await loader.complete(1, with: .success(makeFormula("child", dependencies: ["fresh"])))
+        _ = await newLoad.value
+        XCTAssertEqual(store.visibleNodes.map(\.name), ["root", "child", "fresh", "new"])
+    }
+
+    func testObsoleteRootFailureDoesNotMarkReplacementNodeFailed() async {
+        let loader = DeferredGraphLoader()
+        let store = DependencyGraphStore(root: makeFormula("root", dependencies: ["child"])) {
+            try await loader.load($0)
+        }
+        let childID = DependencyNodeID(path: ["root", "child"])
+        let oldLoad = Task { await store.toggleExpansion(childID) }
+        await loader.waitForRequests(1)
+
+        _ = store.updateRoot(makeFormula("root", dependencies: ["child", "new"]))
+        await loader.complete(0, with: .failure(.expectedFailure))
+        _ = await oldLoad.value
+
+        XCTAssertEqual(store.state(for: childID), .collapsed)
+        XCTAssertTrue(store.failures.isEmpty)
+    }
+
+    func testObsoleteCompletionCannotOverwriteReplacementFormulaCache() async {
+        let loader = DeferredGraphLoader()
+        let store = DependencyGraphStore(root: makeFormula("root", dependencies: ["child", "branch"])) { name in
+            if name == "branch" { return makeFormula(name, dependencies: ["child"]) }
+            return try await loader.load(name)
+        }
+        let childID = DependencyNodeID(path: ["root", "child"])
+        let oldLoad = Task { await store.toggleExpansion(childID) }
+        await loader.waitForRequests(1)
+        _ = store.updateRoot(makeFormula("root", dependencies: ["child", "branch", "new"]))
+        let newLoad = Task { await store.toggleExpansion(childID) }
+        await loader.waitForRequests(2)
+        await loader.complete(1, with: .success(makeFormula("child", dependencies: ["fresh"])))
+        _ = await newLoad.value
+        await loader.complete(0, with: .success(makeFormula("child", dependencies: ["obsolete"])))
+        _ = await oldLoad.value
+
+        _ = await store.toggleExpansion(DependencyNodeID(path: ["root", "branch"]))
+        _ = await store.toggleExpansion(DependencyNodeID(path: ["root", "branch", "child"]))
+
+        XCTAssertEqual(store.visibleNodes.map(\.name), ["root", "child", "fresh", "branch", "child", "fresh", "new"])
+    }
+
+    func testCancellingPendingLoadsRejectsLateResponseAndAllowsFreshExpansion() async {
+        let loader = DeferredGraphLoader()
+        let store = DependencyGraphStore(root: makeFormula("root", dependencies: ["child"])) {
+            try await loader.load($0)
+        }
+        let childID = DependencyNodeID(path: ["root", "child"])
+        let oldLoad = Task { await store.toggleExpansion(childID) }
+        await loader.waitForRequests(1)
+
+        store.cancelPendingLoads()
+        await loader.complete(0, with: .success(makeFormula("child", dependencies: ["obsolete"])))
+        _ = await oldLoad.value
+
+        XCTAssertEqual(store.visibleNodes.map(\.name), ["root", "child"])
+        XCTAssertEqual(store.state(for: childID), .collapsed)
+        guard store.state(for: childID) == .collapsed else { return }
+        let newLoad = Task { await store.toggleExpansion(childID) }
+        await loader.waitForRequests(2)
+        await loader.complete(1, with: .success(makeFormula("child", dependencies: ["fresh"])))
+        _ = await newLoad.value
+        XCTAssertEqual(store.visibleNodes.map(\.name), ["root", "child", "fresh"])
+    }
+
+    func testQualifiedRootKeepsCanonicalIdentityAndDetectsItsSelfCycle() {
+        let store = DependencyGraphStore(root: makeFormula(
+            "widget", dependencies: ["vendor/tap/widget"], fullName: "vendor/tap/widget"
+        )) { makeFormula($0) }
+
+        XCTAssertEqual(store.visibleNodes.first?.id, DependencyNodeID(path: ["vendor/tap/widget"]))
+        XCTAssertEqual(store.visibleNodes.first?.name, "widget")
+        XCTAssertEqual(store.visibleNodes.last?.kind, .cycleReference)
+    }
+
     func testInitialTreeShowsRootAndDirectDependencies() {
         let root = makeFormula("git", dependencies: ["pcre2", "gettext"])
         let store = DependencyGraphStore(root: root) { name in makeFormula(name) }

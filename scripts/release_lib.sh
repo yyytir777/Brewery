@@ -445,3 +445,50 @@ assert_only_release_changes() {
   local expected=$' M Brewery.xcodeproj/project.pbxproj\n M README.md'
   [[ "$actual" == "$expected" ]]
 }
+
+# Only reads the public half; never creates/exports signing secrets during release.
+assert_sparkle_public_key() {
+  local key_tool=$1 info_plist=$2 account=$3
+  local embedded_key signing_key
+  embedded_key=$(plutil -extract SUPublicEDKey raw -o - "$info_plist") || return 1
+  signing_key=$("$key_tool" -p --account "$account") || return 1
+  [[ -n "$embedded_key" && "$embedded_key" == "$signing_key" ]]
+}
+
+assert_sparkle_appcast() {
+  local feed=$1 dmg=$2 version=$3 build=$4 repository=$5
+  local enclosure='/rss/channel/item/enclosure'
+  [[ "$(xmllint --xpath 'count(/rss/channel/item)' "$feed")" == 1 ]] || return 1
+  [[ "$(xmllint --xpath "count($enclosure)" "$feed")" == 1 ]] || return 1
+  [[ "$(xmllint --xpath "string($enclosure/@url)" "$feed")" == "https://github.com/$repository/releases/download/v$version/${dmg:t}" ]] || return 1
+  [[ "$(xmllint --xpath "string($enclosure/@length)" "$feed")" == "$(stat -f %z "$dmg")" ]] || return 1
+  [[ "$(xmllint --xpath 'string(/rss/channel/item/*[local-name()="version"])' "$feed")" == "$build" ]] || return 1
+  [[ "$(xmllint --xpath 'string(/rss/channel/item/*[local-name()="shortVersionString"])' "$feed")" == "$version" ]] || return 1
+  local signature
+  signature=$(xmllint --xpath "string($enclosure/@*[local-name()='edSignature'])" "$feed") || return 1
+  [[ "$signature" =~ '^[A-Za-z0-9+/]{86}==$' ]]
+}
+
+verify_release_assets() {
+  local readback=$1 dmg_name=$2 dmg_size=$3 dmg_hash=$4 feed_size=$5 feed_hash=$6
+  local index name size digest metadata expected_size expected_hash
+  local seen_dmg=0 seen_feed=0
+  for index in 0 1; do
+    name=$(plutil -extract "assets.$index.name" raw -o - "$readback") || return 1
+    case "$name" in
+      "$dmg_name") (( seen_dmg == 0 )) || return 1; seen_dmg=1; expected_size=$dmg_size; expected_hash=$dmg_hash ;;
+      appcast.xml) (( seen_feed == 0 )) || return 1; seen_feed=1; expected_size=$feed_size; expected_hash=$feed_hash ;;
+      *) return 1 ;;
+    esac
+    size=$(plutil -extract "assets.$index.size" raw -o - "$readback") || return 1
+    [[ "$size" == "$expected_size" ]] || return 1
+    metadata=$(plutil -extract "assets.$index" json -o - "$readback") || return 1
+    if digest=$(plutil -extract "assets.$index.digest" raw -o - "$readback" 2>/dev/null); then
+      [[ "$digest" == "sha256:$expected_hash" ]] || return 1
+    elif ! print -r -- "$metadata" | grep -Eq '"digest"[[:space:]]*:[[:space:]]*null'; then
+      return 1
+    fi
+  done
+  (( seen_dmg == 1 && seen_feed == 1 )) || return 1
+  ! plutil -extract assets.2 json -o - "$readback" >/dev/null 2>&1
+}
